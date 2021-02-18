@@ -13,9 +13,5 @@ license = "GPL-3.0-or-later"
 keywords = ["no-std", "qrcode", "qr-code", "encoder"]
 categories = ["embedded", "encoding", "no-std"]
 
-[dependencies.bitvec]
-version = "0.20.1"
-default-features = false
-
 [dependencies.reed-solomon]
 version = "0.2.1"
