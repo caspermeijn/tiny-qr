@@ -1,0 +1,21 @@
+# Copyright (C) 2020 Casper Meijn <casper@meijn.net>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+[package]
+name = "tiny-qr"
+version = "0.1.0"
+authors = ["Casper Meijn <casper@meijn.net>"]
+edition = "2018"
+description = "A tiny library for generating QR codes. Bring your own output method."
+repository = "https://github.com/caspermeijn/tiny-qr"
+license = "GPL-3.0-or-later"
+keywords = ["no-std", "qrcode", "qr-code", "encoder"]
+categories = ["embedded", "encoding", "no-std"]
+
+[dependencies.bitvec]
+version = "0.20.1"
+default-features = false
+
+[dependencies.reed-solomon]
+version = "0.2.1"
