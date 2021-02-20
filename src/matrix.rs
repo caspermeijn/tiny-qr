@@ -196,6 +196,51 @@ impl<const N: usize> Matrix<N> {
         self.fill_line(Point::new(0, size.y - 8), Point::new(7, size.y - 8), white);
     }
 
+    pub fn fill_alignment_pattern(&mut self, center_pos: Point) {
+        let black = Module::Static(Color::Black);
+        let white = Module::Static(Color::White);
+
+        self.fill_module(center_pos, black);
+
+        self.fill_module(Point::new(center_pos.x - 1, center_pos.y - 1), white);
+        self.fill_module(Point::new(center_pos.x - 1, center_pos.y), white);
+        self.fill_module(Point::new(center_pos.x - 1, center_pos.y + 1), white);
+        self.fill_module(Point::new(center_pos.x + 1, center_pos.y - 1), white);
+        self.fill_module(Point::new(center_pos.x + 1, center_pos.y), white);
+        self.fill_module(Point::new(center_pos.x + 1, center_pos.y + 1), white);
+        self.fill_module(Point::new(center_pos.x, center_pos.y - 1), white);
+        self.fill_module(Point::new(center_pos.x, center_pos.y + 1), white);
+
+        self.fill_line(
+            Point::new(center_pos.x - 2, center_pos.y - 2),
+            Point::new(center_pos.x - 2, center_pos.y + 1),
+            black,
+        );
+        self.fill_line(
+            Point::new(center_pos.x - 2, center_pos.y + 2),
+            Point::new(center_pos.x + 1, center_pos.y + 2),
+            black,
+        );
+        self.fill_line(
+            Point::new(center_pos.x + 2, center_pos.y - 1),
+            Point::new(center_pos.x + 2, center_pos.y + 2),
+            black,
+        );
+        self.fill_line(
+            Point::new(center_pos.x - 1, center_pos.y - 2),
+            Point::new(center_pos.x + 2, center_pos.y - 2),
+            black,
+        );
+    }
+
+    pub fn fill_alignment_patterns(&mut self) {
+        let size = self.size();
+
+        if size.x > 21 {
+            self.fill_alignment_pattern(Point::new(size.x - 7, size.y - 7));
+        }
+    }
+
     pub fn fill_reserved(&mut self) {
         let reserved = Module::Reserved;
         let size = self.size();
@@ -259,6 +304,13 @@ impl<const N: usize> Matrix<N> {
                 }
             }
         }
+    }
+
+    pub fn fill_symbol(&mut self) {
+        self.fill_finder_patterns();
+        self.fill_reserved();
+        self.fill_timing_pattern();
+        self.fill_alignment_patterns();
     }
 
     pub fn place_format(&mut self, data: u16) {
@@ -569,6 +621,44 @@ mod tests {
 "
         );
     }
+
+    #[test]
+    fn symbol_version_2() {
+        let mut matrix = Matrix::<25>::new();
+        matrix.fill_symbol();
+
+        assert_eq!(
+            format!("{:?}", matrix),
+            "\
+▓▓▓▓▓▓▓░▒��������░▓▓▓▓▓▓▓
+▓░░░░░▓░▒��������░▓░░░░░▓
+▓░▓▓▓░▓░▒��������░▓░▓▓▓░▓
+▓░▓▓▓░▓░▒��������░▓░▓▓▓░▓
+▓░▓▓▓░▓░▒��������░▓░▓▓▓░▓
+▓░░░░░▓░▒��������░▓░░░░░▓
+▓▓▓▓▓▓▓░▓░▓░▓░▓░▓░▓▓▓▓▓▓▓
+░░░░░░░░▒��������░░░░░░░░
+▒▒▒▒▒▒▓▒▒��������▒▒▒▒▒▒▒▒
+������░������������������
+������▓������������������
+������░������������������
+������▓������������������
+������░������������������
+������▓������������������
+������░������������������
+������▓���������▓▓▓▓▓����
+░░░░░░░░▒�������▓░░░▓����
+▓▓▓▓▓▓▓░▒�������▓░▓░▓����
+▓░░░░░▓░▒�������▓░░░▓����
+▓░▓▓▓░▓░▒�������▓▓▓▓▓����
+▓░▓▓▓░▓░▒����������������
+▓░▓▓▓░▓░▒����������������
+▓░░░░░▓░▒����������������
+▓▓▓▓▓▓▓░▒����������������
+"
+        );
+    }
+
 
     #[test]
     fn placement() {
