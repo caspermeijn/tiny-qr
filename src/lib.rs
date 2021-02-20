@@ -23,6 +23,7 @@ mod encoding;
 mod error_correction;
 mod format;
 mod matrix;
+mod mask;
 mod qr_version;
 mod qrcode;
 
