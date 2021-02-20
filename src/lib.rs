@@ -28,7 +28,7 @@ mod mask;
 mod qr_version;
 mod qrcode;
 
-pub use qrcode::QrCode;
+pub use qrcode::QrCodeBuilder;
 
 #[cfg(test)]
 mod tests {
