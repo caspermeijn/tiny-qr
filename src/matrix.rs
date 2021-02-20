@@ -68,25 +68,29 @@ impl From<Module> for Color {
 }
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Matrix {
-    data: [[Module; 21]; 21],
+pub struct Matrix<const N: usize> {
+    pub(crate) data: [[Module; N]; N],
 }
 
-impl Default for Matrix {
+impl<const N: usize> Default for Matrix<N> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Matrix {
-    pub fn new() -> Matrix {
-        Matrix {
-            data: [[Module::Empty; 21]; 21],
+impl<const N: usize> Matrix<N> {
+    pub fn new() -> Self {
+        Self {
+            data: [[Module::Empty; N]; N],
         }
     }
 
+    pub fn width(&self) -> usize {
+        N
+    }
+
     pub fn size(&self) -> Point {
-        Point::new(self.data.len(), self.data[0].len())
+        Point::new(N, N)
     }
 
     pub fn fill_whole(&mut self, data: Module) {
@@ -277,7 +281,7 @@ impl Matrix {
     }
 }
 
-impl Debug for Matrix {
+impl<const N: usize> Debug for Matrix<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.data.iter().try_for_each(|row| {
             row.iter().try_for_each(|&module| match module {
@@ -297,7 +301,7 @@ impl Debug for Matrix {
     }
 }
 
-impl Display for Matrix {
+impl<const N: usize> Display for Matrix<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.data.chunks(2).try_for_each(|rows| {
             if rows.len() == 2 {
@@ -468,8 +472,8 @@ mod tests {
     use crate::matrix::{Color, Matrix, Module};
 
     #[test]
-    fn finder_pattern() {
-        let mut matrix = Matrix::new();
+    fn finder_pattern_version_1() {
+        let mut matrix = Matrix::<21>::new();
         matrix.fill_finder_patterns();
 
         assert_eq!(
@@ -501,8 +505,8 @@ mod tests {
     }
 
     #[test]
-    fn reserved() {
-        let mut matrix = Matrix::new();
+    fn reserved_version_1() {
+        let mut matrix = Matrix::<21>::new();
         matrix.fill_reserved();
 
         assert_eq!(
@@ -535,7 +539,7 @@ mod tests {
 
     #[test]
     fn timing_pattern() {
-        let mut matrix = Matrix::new();
+        let mut matrix = Matrix::<21>::new();
         matrix.fill_timing_pattern();
 
         assert_eq!(
@@ -568,7 +572,7 @@ mod tests {
 
     #[test]
     fn placement() {
-        let mut matrix = Matrix::new();
+        let mut matrix = Matrix::<21>::new();
         matrix.fill_finder_patterns();
         matrix.fill_reserved();
         matrix.fill_timing_pattern();
@@ -610,7 +614,7 @@ mod tests {
 
     #[test]
     fn format() {
-        let mut matrix = Matrix::new();
+        let mut matrix = Matrix::<21>::new();
         matrix.fill_reserved();
         matrix.place_format(0b100000011001110);
 

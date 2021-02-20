@@ -17,6 +17,7 @@
 
 //TODO: Force no_std
 // #![no_std]
+#![feature(min_const_generics)]
 
 pub mod buffer;
 mod encoding;

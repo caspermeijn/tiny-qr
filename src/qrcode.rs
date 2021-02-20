@@ -22,7 +22,7 @@ use crate::matrix::Matrix;
 use crate::qr_version::Version;
 
 pub struct QrCode {
-    pub matrix: Matrix,
+    pub matrix: Matrix<21>,
 }
 
 impl QrCode {
