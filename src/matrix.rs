@@ -17,6 +17,7 @@
 
 use crate::array_2d::{Array2D, Coordinate};
 use std::fmt::{Debug, Display, Formatter, Write};
+use crate::qr_version::Version;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Color {
@@ -335,6 +336,10 @@ impl<const N: usize> Matrix<N> {
             Module::Static(Color::Black),
         );
     }
+
+    pub fn set_version(&mut self, version: Version) {
+        self.data.set_size((version.width(), version.width()).into());
+    }
 }
 
 impl<const N: usize> Debug for Matrix<N> {
@@ -525,6 +530,7 @@ impl<'a> Iterator for BitIterator<'a> {
 #[cfg(test)]
 mod tests {
     use crate::matrix::{Color, Matrix, Module};
+    use crate::qr_version::Version;
 
     #[test]
     fn finder_pattern_version_1() {
@@ -737,4 +743,41 @@ mod tests {
 "
         );
     }
+
+    #[test]
+    fn large_matrix_small_pattern() {
+        let mut matrix = Matrix::<100>::new();
+        matrix.set_version(Version {
+            version: 1,
+        });
+        matrix.fill_finder_patterns();
+
+        assert_eq!(
+            format!("{:?}", matrix),
+            "\
+▓▓▓▓▓▓▓░�����░▓▓▓▓▓▓▓
+▓░░░░░▓░�����░▓░░░░░▓
+▓░▓▓▓░▓░�����░▓░▓▓▓░▓
+▓░▓▓▓░▓░�����░▓░▓▓▓░▓
+▓░▓▓▓░▓░�����░▓░▓▓▓░▓
+▓░░░░░▓░�����░▓░░░░░▓
+▓▓▓▓▓▓▓░�����░▓▓▓▓▓▓▓
+░░░░░░░░�����░░░░░░░░
+���������������������
+���������������������
+���������������������
+���������������������
+���������������������
+░░░░░░░░�������������
+▓▓▓▓▓▓▓░�������������
+▓░░░░░▓░�������������
+▓░▓▓▓░▓░�������������
+▓░▓▓▓░▓░�������������
+▓░▓▓▓░▓░�������������
+▓░░░░░▓░�������������
+▓▓▓▓▓▓▓░�������������
+"
+        );
+    }
+
 }

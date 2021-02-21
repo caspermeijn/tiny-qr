@@ -61,22 +61,24 @@ impl<'a> QrCodeBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> QrCode {
-        let selected_version = self.version.unwrap_or(1);
+    pub fn build(self) -> QrCode<2> {
+        let selected_version_number = self.version.unwrap_or(2);
+        let selected_version = Version { version: selected_version_number };
+        let selected_mask_reference = self.mask_reference.unwrap_or(0);
         let data = self.text.unwrap();
 
         let encoding = EncodingMode::select_best_encoding(data);
         let mut buffer = match encoding {
             Some(EncodingMode::Numeric) => {
                 let encoder = NumericDataEncoder {
-                    version: Version { version: selected_version },
+                    version: selected_version,
                     error_correction: self.error_correction_level,
                 };
                 encoder.encode(data)
             }
             Some(EncodingMode::Alphanumeric) => {
                 let encoder = AlphanumericDataEncoder {
-                    version: Version { version: selected_version },
+                    version: selected_version,
                     error_correction: self.error_correction_level,
                 };
                 encoder.encode(data)
@@ -87,11 +89,11 @@ impl<'a> QrCodeBuilder<'a> {
         };
 
         let mut matrix = Matrix::new();
+        matrix.set_version(selected_version);
         matrix.fill_symbol();
 
-
         let encoder = ErrorCorrectionEncoder {
-            version: Version { version: selected_version },
+            version: selected_version,
             error_correction: self.error_correction_level,
         };
 
@@ -99,7 +101,7 @@ impl<'a> QrCodeBuilder<'a> {
 
         matrix.place_data(buffer.data());
 
-        let mut matrix = matrix.mask(self.mask_reference.unwrap());
+        let mut matrix = matrix.mask(selected_mask_reference);
 
         let format_encoder = FormatEncoder {
             error_correction_level: self.error_correction_level,
@@ -113,59 +115,11 @@ impl<'a> QrCodeBuilder<'a> {
     }
 }
 
-pub struct QrCode {
-    pub matrix: Matrix<21>,
-}
-
-impl QrCode {
-    pub fn from_str(data: &str) -> QrCode {
-        let encoding = EncodingMode::select_best_encoding(data);
-        let mut buffer = match encoding {
-            Some(EncodingMode::Numeric) => {
-                let encoder = NumericDataEncoder {
-                    version: Version { version: 1 },
-                    error_correction: ErrorCorrectionLevel::Medium,
-                };
-                encoder.encode(data)
-            }
-            Some(EncodingMode::Alphanumeric) => {
-                let encoder = AlphanumericDataEncoder {
-                    version: Version { version: 1 },
-                    error_correction: ErrorCorrectionLevel::Medium,
-                };
-                encoder.encode(data)
-            }
-            _ => {
-                panic!("Sorry, this input is not yet supported");
-            }
-        };
-
-        let mut matrix = Matrix::new();
-        matrix.fill_finder_patterns();
-        matrix.fill_reserved();
-        matrix.fill_timing_pattern();
-
-        let encoder = ErrorCorrectionEncoder {
-            version: Version { version: 1 },
-            error_correction: ErrorCorrectionLevel::Medium,
-        };
-
-        encoder.encode(&mut buffer);
-
-        matrix.place_data(buffer.data());
-
-        let mut matrix = matrix.mask(0b010);
-
-        let format_encoder = FormatEncoder {
-            error_correction_level: ErrorCorrectionLevel::Medium,
-            mask_reference: 0b010,
-        };
-
-        let format = format_encoder.encode();
-        matrix.place_format(format);
-
-        QrCode { matrix }
-    }
+pub struct QrCode<const MAX_VERSION: usize>
+where
+    [u8; { MAX_VERSION * 4 + 17 }]: Sized,
+{
+    pub matrix: Matrix<{ MAX_VERSION * 4 + 17 }>,
 }
 
 #[cfg(test)]
@@ -177,6 +131,7 @@ mod tests {
     fn numeric_version_1() {
         let qr_code = QrCodeBuilder::new()
             .with_text("01234567")
+            .with_version(1)
             .with_mask_reference(0b010)
             .build();
 
@@ -241,6 +196,49 @@ __█_█_▓█___█__██_____
 ▓░▓▓▓░▓░░█____█____██
 ▓░░░░░▓░▓██__███__██_
 ▓▓▓▓▓▓▓░░█_█_______█_
+"
+        );
+    }
+
+    #[test]
+    fn alphanumeric_version_2() {
+        let qr_code = QrCodeBuilder::new()
+            .with_version(2)
+            .with_error_correction_level(ErrorCorrectionLevel::Quartile)
+            .with_mask_reference(0b110)
+            .with_text("HTTPS://CASPERMEIJN.NL")
+            .build();
+
+        println!("{:?}", qr_code.matrix);
+
+        assert_eq!(
+            format!("{:?}", qr_code.matrix),
+            "\
+▓▓▓▓▓▓▓░░__█████_░▓▓▓▓▓▓▓
+▓░░░░░▓░▓_█_████_░▓░░░░░▓
+▓░▓▓▓░▓░░█___██__░▓░▓▓▓░▓
+▓░▓▓▓░▓░▓█__█_███░▓░▓▓▓░▓
+▓░▓▓▓░▓░▓_██_█_█_░▓░▓▓▓░▓
+▓░░░░░▓░░_█_███_█░▓░░░░░▓
+▓▓▓▓▓▓▓░▓░▓░▓░▓░▓░▓▓▓▓▓▓▓
+░░░░░░░░▓_█___█__░░░░░░░░
+░▓░▓▓▓▓░▓████████▓▓░▓▓░▓░
+█_█_█_░█_████_█_█_█████__
+███_█_▓_██_██_██__█_____█
+█_____░███_██_█_█_█_████_
+██_█__▓█_█_████_█__█_███_
+�___██░████_██___█_█_█___
+��____▓██_█__███_███_█___
+��___█░██______██___█_███
+��██__▓_█_██_██_▓▓▓▓▓_███
+░░░░░░░░▓___█___▓░░░▓█___
+▓▓▓▓▓▓▓░░█__██__▓░▓░▓_███
+▓░░░░░▓░▓_█____█▓░░░▓███_
+▓░▓▓▓░▓░▓██__███▓▓▓▓▓_█__
+▓░▓▓▓░▓░▓_____█_█_█___█_█
+▓░▓▓▓░▓░░█_█___██____████
+▓░░░░░▓░▓_███_█████_█_██_
+▓▓▓▓▓▓▓░░██████_____██_██
 "
         );
     }

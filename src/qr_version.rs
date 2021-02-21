@@ -18,11 +18,16 @@
 use crate::encoding::EncodingMode;
 use crate::error_correction::ErrorCorrectionLevel;
 
+#[derive(Clone, Copy)]
 pub struct Version {
     pub(crate) version: u8,
 }
 
 impl Version {
+    pub const fn width(&self) -> usize {
+        self.version as usize * 4 + 17
+    }
+
     pub fn character_count_indicator_bit_length(&self, encoding: EncodingMode) -> usize {
         match encoding {
             EncodingMode::Numeric => match self.version {
@@ -99,6 +104,18 @@ impl Version {
                 ErrorCorrectionLevel::Medium => 10,
                 ErrorCorrectionLevel::Quartile => 13,
                 ErrorCorrectionLevel::High => 17,
+            },
+            2 => match error_correction {
+                ErrorCorrectionLevel::Low => 10,
+                ErrorCorrectionLevel::Medium => 16,
+                ErrorCorrectionLevel::Quartile => 22,
+                ErrorCorrectionLevel::High => 28,
+            },
+            3 => match error_correction {
+                ErrorCorrectionLevel::Low => 15,
+                ErrorCorrectionLevel::Medium => 26,
+                ErrorCorrectionLevel::Quartile => 36,
+                ErrorCorrectionLevel::High => 44,
             },
             4 => match error_correction {
                 ErrorCorrectionLevel::Low => 20,

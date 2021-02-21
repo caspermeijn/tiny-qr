@@ -40,6 +40,7 @@ impl From<(usize, usize)> for Coordinate {
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Array2D<T, const N: usize> {
     data: [[T; N]; N],
+    size: Coordinate,
 }
 
 impl<T, const N: usize> Index<Coordinate> for Array2D<T, N> {
@@ -63,15 +64,27 @@ where
     pub fn new() -> Self {
         Self {
             data: [[T::default(); N]; N],
+            size: Coordinate::new(N, N),
         }
+    }
+}
+
+impl<T, const N: usize> Array2D<T, N>
+{
+    pub fn capacity() -> Coordinate {
+        Coordinate::new(N, N)
     }
 
     pub fn size(&self) -> Coordinate {
-        Coordinate::new(N, N)
+        self.size
     }
 
     pub fn rows(&self) -> Rows<'_, T, N> {
         Rows { data: &self, x: 0 }
+    }
+
+    pub fn set_size(&mut self, size: Coordinate) {
+        self.size = size;
     }
 }
 
@@ -87,7 +100,8 @@ impl<'a, T, const N: usize> Iterator for Rows<'a, T, N> {
 
     // next() is the only required method
     fn next(&mut self) -> Option<Self::Item> {
-        if self.x < N {
+        let size = self.data.size();
+        if self.x < size.x {
             let result = Row {
                 data: self.data,
                 x: self.x,
@@ -114,7 +128,8 @@ impl<'a, T, const N: usize> Iterator for Row<'a, T, N> {
 
     // next() is the only required method
     fn next(&mut self) -> Option<Self::Item> {
-        if self.y < N {
+        let size = self.data.size();
+        if self.y < size.y {
             let result = &self.data[(self.x, self.y).into()];
             self.y += 1;
             Some(result)

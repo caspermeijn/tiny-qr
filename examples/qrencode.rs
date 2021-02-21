@@ -23,7 +23,9 @@ fn main() {
     let data = args.join(" ");
     println!("QR code for {}", data);
 
-    let qr_code = QrCodeBuilder::new().with_text(data.as_str()).build();
+    let qr_code = QrCodeBuilder::new()
+        .with_mask_reference(0)
+        .with_text(data.as_str()).build();
 
     println!("{}", qr_code.matrix);
 }
