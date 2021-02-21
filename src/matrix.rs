@@ -15,19 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use crate::array_2d::{Array2D, Coordinate};
 use std::fmt::{Debug, Display, Formatter, Write};
-
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Point {
-    pub x: usize,
-    pub y: usize,
-}
-
-impl Point {
-    pub fn new(x: usize, y: usize) -> Point {
-        Point { x, y }
-    }
-}
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Color {
@@ -56,6 +45,12 @@ pub enum Module {
     Reserved,
 }
 
+impl Default for Module {
+    fn default() -> Self {
+        Module::Empty
+    }
+}
+
 impl From<Module> for Color {
     fn from(module: Module) -> Self {
         match module {
@@ -69,7 +64,7 @@ impl From<Module> for Color {
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Matrix<const N: usize> {
-    pub(crate) data: [[Module; N]; N],
+    pub(crate) data: Array2D<Module, N>,
 }
 
 impl<const N: usize> Default for Matrix<N> {
@@ -81,187 +76,196 @@ impl<const N: usize> Default for Matrix<N> {
 impl<const N: usize> Matrix<N> {
     pub fn new() -> Self {
         Self {
-            data: [[Module::Empty; N]; N],
+            data: Array2D::new(),
         }
     }
 
-    pub fn width(&self) -> usize {
-        N
-    }
-
-    pub fn size(&self) -> Point {
-        Point::new(N, N)
-    }
-
     pub fn fill_whole(&mut self, data: Module) {
-        self.data.iter_mut().for_each(|row| {
-            row.iter_mut().for_each(|module| {
-                *module = data;
-            })
-        });
+        let size = self.data.size();
+        for x in 0..size.x {
+            for y in 0..size.y {
+                self.data[(x, y).into()] = data;
+            }
+        }
     }
 
-    pub fn fill_module(&mut self, pos: Point, data: Module) {
-        self.data[pos.x][pos.y] = data;
+    pub fn fill_module(&mut self, pos: Coordinate, data: Module) {
+        self.data[pos] = data;
     }
 
-    pub fn fill_line(&mut self, pos1: Point, pos2: Point, data: Module) {
+    pub fn fill_line(&mut self, pos1: Coordinate, pos2: Coordinate, data: Module) {
         if pos1.x == pos2.x {
             let x = pos1.x;
             assert!(pos1.y < pos2.y);
             for y in pos1.y..=pos2.y {
-                self.fill_module(Point::new(x, y), data);
+                self.fill_module(Coordinate::new(x, y), data);
             }
         } else if pos1.y == pos2.y {
             let y = pos1.y;
             assert!(pos1.x < pos2.x);
             for x in pos1.x..=pos2.x {
-                self.fill_module(Point::new(x, y), data);
+                self.fill_module(Coordinate::new(x, y), data);
             }
         } else {
             panic!()
         }
     }
 
-    pub fn fill_finder_pattern(&mut self, pos: Point) {
+    pub fn fill_finder_pattern(&mut self, pos: Coordinate) {
         let black = Module::Static(Color::Black);
         let white = Module::Static(Color::White);
 
-        self.fill_line(pos, Point::new(pos.x, pos.y + 6), black);
+        self.fill_line(pos, Coordinate::new(pos.x, pos.y + 6), black);
         self.fill_line(
-            Point::new(pos.x, pos.y + 6),
-            Point::new(pos.x + 5, pos.y + 6),
+            Coordinate::new(pos.x, pos.y + 6),
+            Coordinate::new(pos.x + 5, pos.y + 6),
             black,
         );
         self.fill_line(
-            Point::new(pos.x + 6, pos.y + 1),
-            Point::new(pos.x + 6, pos.y + 6),
+            Coordinate::new(pos.x + 6, pos.y + 1),
+            Coordinate::new(pos.x + 6, pos.y + 6),
             black,
         );
         self.fill_line(
-            Point::new(pos.x + 1, pos.y),
-            Point::new(pos.x + 6, pos.y),
+            Coordinate::new(pos.x + 1, pos.y),
+            Coordinate::new(pos.x + 6, pos.y),
             black,
         );
 
         self.fill_line(
-            Point::new(pos.x + 1, pos.y + 1),
-            Point::new(pos.x + 1, pos.y + 4),
+            Coordinate::new(pos.x + 1, pos.y + 1),
+            Coordinate::new(pos.x + 1, pos.y + 4),
             white,
         );
         self.fill_line(
-            Point::new(pos.x + 1, pos.y + 5),
-            Point::new(pos.x + 4, pos.y + 5),
+            Coordinate::new(pos.x + 1, pos.y + 5),
+            Coordinate::new(pos.x + 4, pos.y + 5),
             white,
         );
         self.fill_line(
-            Point::new(pos.x + 5, pos.y + 2),
-            Point::new(pos.x + 5, pos.y + 5),
+            Coordinate::new(pos.x + 5, pos.y + 2),
+            Coordinate::new(pos.x + 5, pos.y + 5),
             white,
         );
         self.fill_line(
-            Point::new(pos.x + 2, pos.y + 1),
-            Point::new(pos.x + 5, pos.y + 1),
+            Coordinate::new(pos.x + 2, pos.y + 1),
+            Coordinate::new(pos.x + 5, pos.y + 1),
             white,
         );
 
-        self.fill_module(Point::new(pos.x + 2, pos.y + 2), black);
-        self.fill_module(Point::new(pos.x + 2, pos.y + 3), black);
-        self.fill_module(Point::new(pos.x + 2, pos.y + 4), black);
-        self.fill_module(Point::new(pos.x + 3, pos.y + 2), black);
-        self.fill_module(Point::new(pos.x + 3, pos.y + 3), black);
-        self.fill_module(Point::new(pos.x + 3, pos.y + 4), black);
-        self.fill_module(Point::new(pos.x + 4, pos.y + 2), black);
-        self.fill_module(Point::new(pos.x + 4, pos.y + 3), black);
-        self.fill_module(Point::new(pos.x + 4, pos.y + 4), black);
+        self.fill_module(Coordinate::new(pos.x + 2, pos.y + 2), black);
+        self.fill_module(Coordinate::new(pos.x + 2, pos.y + 3), black);
+        self.fill_module(Coordinate::new(pos.x + 2, pos.y + 4), black);
+        self.fill_module(Coordinate::new(pos.x + 3, pos.y + 2), black);
+        self.fill_module(Coordinate::new(pos.x + 3, pos.y + 3), black);
+        self.fill_module(Coordinate::new(pos.x + 3, pos.y + 4), black);
+        self.fill_module(Coordinate::new(pos.x + 4, pos.y + 2), black);
+        self.fill_module(Coordinate::new(pos.x + 4, pos.y + 3), black);
+        self.fill_module(Coordinate::new(pos.x + 4, pos.y + 4), black);
     }
 
     pub fn fill_finder_patterns(&mut self) {
         let white = Module::Static(Color::White);
-        let size = self.size();
+        let size = self.data.size();
 
         // Left-top
-        self.fill_finder_pattern(Point::new(0, 0));
-        self.fill_line(Point::new(0, 7), Point::new(7, 7), white);
-        self.fill_line(Point::new(7, 0), Point::new(7, 6), white);
+        self.fill_finder_pattern(Coordinate::new(0, 0));
+        self.fill_line(Coordinate::new(0, 7), Coordinate::new(7, 7), white);
+        self.fill_line(Coordinate::new(7, 0), Coordinate::new(7, 6), white);
 
         // Left-bottom
-        self.fill_finder_pattern(Point::new(size.x - 7, 0));
-        self.fill_line(Point::new(size.x - 8, 0), Point::new(size.x - 8, 7), white);
-        self.fill_line(Point::new(size.x - 8, 7), Point::new(size.x - 1, 7), white);
+        self.fill_finder_pattern(Coordinate::new(size.x - 7, 0));
+        self.fill_line(
+            Coordinate::new(size.x - 8, 0),
+            Coordinate::new(size.y - 8, 7),
+            white,
+        );
+        self.fill_line(
+            Coordinate::new(size.x - 8, 7),
+            Coordinate::new(size.y - 1, 7),
+            white,
+        );
 
         // Right-top
-        self.fill_finder_pattern(Point::new(0, size.y - 7));
-        self.fill_line(Point::new(7, size.y - 8), Point::new(7, size.y - 1), white);
-        self.fill_line(Point::new(0, size.y - 8), Point::new(7, size.y - 8), white);
+        self.fill_finder_pattern(Coordinate::new(0, size.y - 7));
+        self.fill_line(
+            Coordinate::new(7, size.y - 8),
+            Coordinate::new(7, size.y - 1),
+            white,
+        );
+        self.fill_line(
+            Coordinate::new(0, size.y - 8),
+            Coordinate::new(7, size.y - 8),
+            white,
+        );
     }
 
-    pub fn fill_alignment_pattern(&mut self, center_pos: Point) {
+    pub fn fill_alignment_pattern(&mut self, center_pos: Coordinate) {
         let black = Module::Static(Color::Black);
         let white = Module::Static(Color::White);
 
         self.fill_module(center_pos, black);
 
-        self.fill_module(Point::new(center_pos.x - 1, center_pos.y - 1), white);
-        self.fill_module(Point::new(center_pos.x - 1, center_pos.y), white);
-        self.fill_module(Point::new(center_pos.x - 1, center_pos.y + 1), white);
-        self.fill_module(Point::new(center_pos.x + 1, center_pos.y - 1), white);
-        self.fill_module(Point::new(center_pos.x + 1, center_pos.y), white);
-        self.fill_module(Point::new(center_pos.x + 1, center_pos.y + 1), white);
-        self.fill_module(Point::new(center_pos.x, center_pos.y - 1), white);
-        self.fill_module(Point::new(center_pos.x, center_pos.y + 1), white);
+        self.fill_module(Coordinate::new(center_pos.x - 1, center_pos.y - 1), white);
+        self.fill_module(Coordinate::new(center_pos.x - 1, center_pos.y), white);
+        self.fill_module(Coordinate::new(center_pos.x - 1, center_pos.y + 1), white);
+        self.fill_module(Coordinate::new(center_pos.x + 1, center_pos.y - 1), white);
+        self.fill_module(Coordinate::new(center_pos.x + 1, center_pos.y), white);
+        self.fill_module(Coordinate::new(center_pos.x + 1, center_pos.y + 1), white);
+        self.fill_module(Coordinate::new(center_pos.x, center_pos.y - 1), white);
+        self.fill_module(Coordinate::new(center_pos.x, center_pos.y + 1), white);
 
         self.fill_line(
-            Point::new(center_pos.x - 2, center_pos.y - 2),
-            Point::new(center_pos.x - 2, center_pos.y + 1),
+            Coordinate::new(center_pos.x - 2, center_pos.y - 2),
+            Coordinate::new(center_pos.x - 2, center_pos.y + 1),
             black,
         );
         self.fill_line(
-            Point::new(center_pos.x - 2, center_pos.y + 2),
-            Point::new(center_pos.x + 1, center_pos.y + 2),
+            Coordinate::new(center_pos.x - 2, center_pos.y + 2),
+            Coordinate::new(center_pos.x + 1, center_pos.y + 2),
             black,
         );
         self.fill_line(
-            Point::new(center_pos.x + 2, center_pos.y - 1),
-            Point::new(center_pos.x + 2, center_pos.y + 2),
+            Coordinate::new(center_pos.x + 2, center_pos.y - 1),
+            Coordinate::new(center_pos.x + 2, center_pos.y + 2),
             black,
         );
         self.fill_line(
-            Point::new(center_pos.x - 1, center_pos.y - 2),
-            Point::new(center_pos.x + 2, center_pos.y - 2),
+            Coordinate::new(center_pos.x - 1, center_pos.y - 2),
+            Coordinate::new(center_pos.x + 2, center_pos.y - 2),
             black,
         );
     }
 
     pub fn fill_alignment_patterns(&mut self) {
-        let size = self.size();
+        let size = self.data.size();
 
         if size.x > 21 {
-            self.fill_alignment_pattern(Point::new(size.x - 7, size.y - 7));
+            self.fill_alignment_pattern(Coordinate::new(size.x - 7, size.y - 7));
         }
     }
 
     pub fn fill_reserved(&mut self) {
         let reserved = Module::Reserved;
-        let size = self.size();
+        let size = self.data.size();
 
         // Left-top
-        self.fill_line(Point::new(0, 8), Point::new(5, 8), reserved);
-        self.fill_line(Point::new(8, 0), Point::new(8, 5), reserved);
-        self.fill_module(Point::new(7, 8), reserved);
-        self.fill_module(Point::new(8, 8), reserved);
-        self.fill_module(Point::new(8, 7), reserved);
+        self.fill_line(Coordinate::new(0, 8), Coordinate::new(5, 8), reserved);
+        self.fill_line(Coordinate::new(8, 0), Coordinate::new(8, 5), reserved);
+        self.fill_module(Coordinate::new(7, 8), reserved);
+        self.fill_module(Coordinate::new(8, 8), reserved);
+        self.fill_module(Coordinate::new(8, 7), reserved);
 
         // Left-bottom
         self.fill_line(
-            Point::new(size.x - 8, 8),
-            Point::new(size.x - 1, 8),
+            Coordinate::new(size.x - 8, 8),
+            Coordinate::new(size.x - 1, 8),
             reserved,
         );
         // Right-top
         self.fill_line(
-            Point::new(8, size.y - 8),
-            Point::new(8, size.y - 1),
+            Coordinate::new(8, size.y - 8),
+            Coordinate::new(8, size.y - 1),
             reserved,
         );
     }
@@ -275,27 +279,27 @@ impl<const N: usize> Matrix<N> {
             }
         }
 
-        let size = self.size();
+        let size = self.data.size();
 
         let x = 6;
         for y in 8..size.y - 8 {
-            self.fill_module(Point::new(x, y), color(y));
+            self.fill_module(Coordinate::new(x, y), color(y));
         }
 
         let y = 6;
         for x in 8..size.x - 8 {
-            self.fill_module(Point::new(x, y), color(x));
+            self.fill_module(Coordinate::new(x, y), color(x));
         }
     }
 
     pub fn place_data(&mut self, data: &[u8]) {
         let data_iter = BitIterator::new(data);
-        let pos_iter = PositionIterator::new(self.size());
+        let pos_iter = PositionIterator::new(self.data.size());
 
         for bit in data_iter {
             for pos in pos_iter {
-                if self.data[pos.x][pos.y] == Module::Empty {
-                    self.data[pos.x][pos.y] = if bit {
+                if self.data[pos] == Module::Empty {
+                    self.data[pos] = if bit {
                         Module::Filled(Color::Black)
                     } else {
                         Module::Filled(Color::White)
@@ -314,7 +318,7 @@ impl<const N: usize> Matrix<N> {
     }
 
     pub fn place_format(&mut self, data: u16) {
-        let pos_iter = FormatPositionIterator::new(self.size());
+        let pos_iter = FormatPositionIterator::new(self.data.size());
         for (index, pos_list) in pos_iter.enumerate() {
             let mask = 1 << index;
             let color = if data & mask != 0 {
@@ -327,7 +331,7 @@ impl<const N: usize> Matrix<N> {
             }
         }
         self.fill_module(
-            Point::new(self.size().y - 8, 8),
+            Coordinate::new(self.data.size().y - 8, 8),
             Module::Static(Color::Black),
         );
     }
@@ -335,8 +339,8 @@ impl<const N: usize> Matrix<N> {
 
 impl<const N: usize> Debug for Matrix<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.data.iter().try_for_each(|row| {
-            row.iter().try_for_each(|&module| match module {
+        self.data.rows().try_for_each(|mut row| {
+            row.try_for_each(|module| match module {
                 Module::Filled(color) => match color {
                     Color::White => f.write_char('_'),
                     Color::Black => f.write_char('\u{2588}'),
@@ -355,62 +359,61 @@ impl<const N: usize> Debug for Matrix<N> {
 
 impl<const N: usize> Display for Matrix<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.data.chunks(2).try_for_each(|rows| {
-            if rows.len() == 2 {
-                rows[0]
-                    .iter()
-                    .zip(rows[1].iter())
-                    .try_for_each(|(&up, &down)| {
-                        f.write_char(match (up.into(), down.into()) {
-                            (Color::Black, Color::Black) => '\u{2588}',
-                            (Color::Black, Color::White) => '\u{2580}',
-                            (Color::White, Color::Black) => '\u{2584}',
-                            (Color::White, Color::White) => ' ',
-                        })
-                    })
-            } else {
-                rows[0].iter().try_for_each(|&up| {
-                    f.write_char(match up.into() {
-                        Color::Black => '\u{2580}',
-                        Color::White => ' ',
-                    })
+        let mut iter1 = self.data.rows().step_by(2);
+        let mut iter2 = self.data.rows().skip(1).step_by(2);
+        iter1.zip(iter2).try_for_each(|rows| {
+            rows.0.zip(rows.1).try_for_each(|(&up, &down)| {
+                f.write_char(match (up.into(), down.into()) {
+                    (Color::Black, Color::Black) => '\u{2588}',
+                    (Color::Black, Color::White) => '\u{2580}',
+                    (Color::White, Color::Black) => '\u{2584}',
+                    (Color::White, Color::White) => ' ',
                 })
-            }?;
+            })?;
             f.write_char('\n')
-        })
+        });
+
+        let mut last_row = self.data.rows().last().unwrap();
+        last_row.try_for_each(|&up| {
+            f.write_char(match up.into() {
+                Color::Black => '\u{2580}',
+                Color::White => ' ',
+            })
+        })?;
+        f.write_char('\n')
     }
 }
 
 #[derive(Copy, Clone)]
 struct FormatPositionIterator {
-    size: Point,
+    size: Coordinate,
     index: usize,
 }
 
 impl FormatPositionIterator {
-    fn new(size: Point) -> FormatPositionIterator {
+    fn new(size: Coordinate) -> FormatPositionIterator {
         FormatPositionIterator { size, index: 0 }
     }
 }
 
 impl Iterator for FormatPositionIterator {
-    type Item = [Point; 2];
+    type Item = [Coordinate; 2];
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index <= 14 {
             // Left-top
             let pos1 = match self.index {
-                0..=5 => Point::new(self.index, 8),
-                6..=7 => Point::new(self.index + 1, 8),
-                8 => Point::new(8, 14 - self.index + 1),
-                9..=14 => Point::new(8, 14 - self.index),
+                0..=5 => Coordinate::new(self.index, 8),
+                6..=7 => Coordinate::new(self.index + 1, 8),
+                8 => Coordinate::new(8, 14 - self.index + 1),
+                9..=14 => Coordinate::new(8, 14 - self.index),
                 _ => panic!(),
             };
 
             // Right-top and Left-bottom
             let pos2 = match self.index {
-                0..=7 => Point::new(8, self.size.y - 1 - self.index),
-                8..=14 => Point::new(self.size.x - 1 - 14 + self.index, 8),
+                0..=7 => Coordinate::new(8, self.size.y - 1 - self.index),
+                8..=14 => Coordinate::new(self.size.x - 1 - 14 + self.index, 8),
                 _ => panic!(),
             };
             self.index += 1;
@@ -423,17 +426,17 @@ impl Iterator for FormatPositionIterator {
 
 #[derive(Copy, Clone)]
 struct PositionIterator {
-    size: Point,
-    current_pos: Point,
-    next_pos: Option<Point>,
+    size: Coordinate,
+    current_pos: Coordinate,
+    next_pos: Option<Coordinate>,
     upwards: bool,
 }
 
 impl PositionIterator {
-    fn new(size: Point) -> PositionIterator {
+    fn new(size: Coordinate) -> PositionIterator {
         PositionIterator {
             size,
-            current_pos: Point::new(size.x - 1, size.y - 1),
+            current_pos: Coordinate::new(size.x - 1, size.y - 1),
             next_pos: None,
             upwards: true,
         }
@@ -442,7 +445,7 @@ impl PositionIterator {
 
 impl Iterator for PositionIterator {
     // we will be counting with usize
-    type Item = Point;
+    type Item = Coordinate;
 
     // next() is the only required method
     fn next(&mut self) -> Option<Self::Item> {
@@ -450,7 +453,7 @@ impl Iterator for PositionIterator {
             self.next_pos.take()
         } else {
             let current_pos = self.current_pos;
-            self.next_pos = Some(Point::new(current_pos.x, current_pos.y - 1));
+            self.next_pos = Some(Coordinate::new(current_pos.x, current_pos.y - 1));
             if self.upwards {
                 if self.current_pos.x == 0 {
                     self.upwards = false;
@@ -658,7 +661,6 @@ mod tests {
 "
         );
     }
-
 
     #[test]
     fn placement() {

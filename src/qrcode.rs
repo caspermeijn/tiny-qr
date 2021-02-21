@@ -25,7 +25,7 @@ pub struct QrCodeBuilder<'a> {
     version: Option<u8>,
     error_correction_level: ErrorCorrectionLevel,
     mask_reference: Option<u8>,
-    text: Option<&'a str>
+    text: Option<&'a str>,
 }
 
 impl<'a> QrCodeBuilder<'a> {
@@ -43,7 +43,10 @@ impl<'a> QrCodeBuilder<'a> {
         self
     }
 
-    pub fn with_error_correction_level(mut self, error_correction_level: ErrorCorrectionLevel) -> Self {
+    pub fn with_error_correction_level(
+        mut self,
+        error_correction_level: ErrorCorrectionLevel,
+    ) -> Self {
         self.error_correction_level = error_correction_level;
         self
     }
@@ -167,8 +170,8 @@ impl QrCode {
 
 #[cfg(test)]
 mod tests {
-    use crate::qrcode::QrCodeBuilder;
     use crate::error_correction::ErrorCorrectionLevel;
+    use crate::qrcode::QrCodeBuilder;
 
     #[test]
     fn numeric_version_1() {

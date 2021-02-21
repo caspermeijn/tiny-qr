@@ -14,18 +14,19 @@ impl<const N: usize> Matrix<N> {
             _ => panic!(),
         };
         let mut masked = *self;
-        masked.data.iter_mut().enumerate().for_each(|(x, row)| {
-            row.iter_mut().enumerate().for_each(|(y, module)| {
+        let size = masked.data.size();
+        for x in 0..size.x {
+            for y in 0..size.y {
+                let module = &mut masked.data[(x, y).into()];
                 if let Module::Filled(color) = module {
                     if condition(x, y) {
                         *module = Module::Filled(color.inverse())
                     }
                 }
-            })
-        });
+            }
+        }
         masked
     }
-
 }
 
 #[cfg(test)]
@@ -351,5 +352,4 @@ ___███▓██__█_█__█____
 
         assert_eq!(format!("{:?}", twice_masked), format!("{:?}", matrix),);
     }
-
 }

@@ -18,13 +18,16 @@
 //TODO: Force no_std
 // #![no_std]
 #![feature(min_const_generics)]
+#![feature(const_generics)]
+#![feature(const_evaluatable_checked)]
 
+mod array_2d;
 pub mod buffer;
 mod encoding;
 mod error_correction;
 mod format;
-mod matrix;
 mod mask;
+mod matrix;
 mod qr_version;
 mod qrcode;
 
