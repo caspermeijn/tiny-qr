@@ -63,7 +63,9 @@ impl<'a> QrCodeBuilder<'a> {
 
     pub fn build(self) -> QrCode<2> {
         let selected_version_number = self.version.unwrap_or(2);
-        let selected_version = Version { version: selected_version_number };
+        let selected_version = Version {
+            version: selected_version_number,
+        };
         let selected_mask_reference = self.mask_reference.unwrap_or(0);
         let data = self.text.unwrap();
 
@@ -117,7 +119,7 @@ impl<'a> QrCodeBuilder<'a> {
 
 pub struct QrCode<const MAX_VERSION: usize>
 where
-    [u8; { MAX_VERSION * 4 + 17 }]: Sized,
+    [u8; MAX_VERSION * 4 + 17]: Sized,
 {
     pub matrix: Matrix<{ MAX_VERSION * 4 + 17 }>,
 }

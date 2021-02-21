@@ -232,19 +232,19 @@ pub enum EncodingMode {
     Kanji,
 }
 
+fn is_char_numeric(c: char) -> bool {
+    c.is_ascii_digit()
+}
+
+fn is_char_alphanumeric(c: char) -> bool {
+    matches!(c, '0'..='9' | 'A'..='Z' | ' ' | '$' | '%' | '*' | '+' | '-' | '.' | '/' | ':')
+}
+
 impl EncodingMode {
     pub fn select_best_encoding(data: &str) -> Option<EncodingMode> {
-        if data.chars().all(|char| char.is_ascii_digit()) {
+        if data.chars().all(is_char_numeric) {
             Some(EncodingMode::Numeric)
-        } else if data.chars().all(|char| {
-            matches!(char, '0'..='9' | 'A'..='Z' | ' ' | '$' | '%' |
-            '*' |
-            '+' |
-            '-' |
-            '.' |
-            '/' |
-            ':')
-        }) {
+        } else if data.chars().all(is_char_alphanumeric) {
             Some(EncodingMode::Alphanumeric)
         } else {
             None

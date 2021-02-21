@@ -16,7 +16,6 @@
  */
 
 use std::ops::{Index, IndexMut};
-use std::slice::Iter;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Coordinate {
@@ -69,8 +68,7 @@ where
     }
 }
 
-impl<T, const N: usize> Array2D<T, N>
-{
+impl<T, const N: usize> Array2D<T, N> {
     pub fn capacity() -> Coordinate {
         Coordinate::new(N, N)
     }

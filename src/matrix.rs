@@ -16,8 +16,8 @@
  */
 
 use crate::array_2d::{Array2D, Coordinate};
-use std::fmt::{Debug, Display, Formatter, Write};
 use crate::qr_version::Version;
+use std::fmt::{Debug, Display, Formatter, Write};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Color {
@@ -338,7 +338,8 @@ impl<const N: usize> Matrix<N> {
     }
 
     pub fn set_version(&mut self, version: Version) {
-        self.data.set_size((version.width(), version.width()).into());
+        self.data
+            .set_size((version.width(), version.width()).into());
     }
 }
 
@@ -364,8 +365,8 @@ impl<const N: usize> Debug for Matrix<N> {
 
 impl<const N: usize> Display for Matrix<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut iter1 = self.data.rows().step_by(2);
-        let mut iter2 = self.data.rows().skip(1).step_by(2);
+        let iter1 = self.data.rows().step_by(2);
+        let iter2 = self.data.rows().skip(1).step_by(2);
         iter1.zip(iter2).try_for_each(|rows| {
             rows.0.zip(rows.1).try_for_each(|(&up, &down)| {
                 f.write_char(match (up.into(), down.into()) {
@@ -376,7 +377,7 @@ impl<const N: usize> Display for Matrix<N> {
                 })
             })?;
             f.write_char('\n')
-        });
+        })?;
 
         let mut last_row = self.data.rows().last().unwrap();
         last_row.try_for_each(|&up| {
@@ -747,9 +748,7 @@ mod tests {
     #[test]
     fn large_matrix_small_pattern() {
         let mut matrix = Matrix::<100>::new();
-        matrix.set_version(Version {
-            version: 1,
-        });
+        matrix.set_version(Version { version: 1 });
         matrix.fill_finder_patterns();
 
         assert_eq!(
@@ -779,5 +778,4 @@ mod tests {
 "
         );
     }
-
 }
