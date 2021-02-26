@@ -18,7 +18,7 @@
 use crate::encoding::EncodingMode;
 use crate::error_correction::ErrorCorrectionLevel;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct Version {
     pub(crate) version: u8,
 }
@@ -90,39 +90,42 @@ impl Version {
     }
 
     pub fn data_codeword_count(&self, error_correction: ErrorCorrectionLevel) -> usize {
-        self.total_codeword_count() - self.error_correction_codeword_count(error_correction)
+        self.total_codeword_count()
+            - self
+                .error_correction_codeword_blocks_count(error_correction)
+                .0
     }
 
     pub fn data_codeword_bit_len(&self, error_correction: ErrorCorrectionLevel) -> usize {
         self.data_codeword_count(error_correction) * 8
     }
 
-    pub fn error_correction_codeword_count(&self, error_correction: ErrorCorrectionLevel) -> usize {
-        match self.version {
-            1 => match error_correction {
-                ErrorCorrectionLevel::Low => 7,
-                ErrorCorrectionLevel::Medium => 10,
-                ErrorCorrectionLevel::Quartile => 13,
-                ErrorCorrectionLevel::High => 17,
-            },
-            2 => match error_correction {
-                ErrorCorrectionLevel::Low => 10,
-                ErrorCorrectionLevel::Medium => 16,
-                ErrorCorrectionLevel::Quartile => 22,
-                ErrorCorrectionLevel::High => 28,
-            },
-            3 => match error_correction {
-                ErrorCorrectionLevel::Low => 15,
-                ErrorCorrectionLevel::Medium => 26,
-                ErrorCorrectionLevel::Quartile => 36,
-                ErrorCorrectionLevel::High => 44,
-            },
-            4 => match error_correction {
-                ErrorCorrectionLevel::Low => 20,
-                ErrorCorrectionLevel::Medium => 36,
-                ErrorCorrectionLevel::Quartile => 52,
-                ErrorCorrectionLevel::High => 64,
-            },
+    pub fn error_correction_codeword_blocks_count(
+        &self,
+        error_correction: ErrorCorrectionLevel,
+    ) -> (usize, usize) {
+        use ErrorCorrectionLevel::{High as H, Low as L, Medium as M, Quartile as Q};
+        match (self.version, error_correction) {
+            (1, L) => (7, 1),
+            (1, M) => (10, 1),
+            (1, Q) => (13, 1),
+            (1, H) => (17, 1),
+            (2, L) => (10, 1),
+            (2, M) => (16, 1),
+            (2, Q) => (22, 1),
+            (2, H) => (28, 1),
+            (3, L) => (15, 1),
+            (3, M) => (26, 1),
+            (3, Q) => (36, 2),
+            (3, H) => (44, 2),
+            (4, L) => (20, 1),
+            (4, M) => (36, 2),
+            (4, Q) => (52, 2),
+            (4, H) => (64, 4),
+            (5, L) => (26, 1),
+            (5, M) => (48, 2),
+            (5, Q) => (72, 4),
+            (5, H) => (88, 4),
             // TODO: Finish table 9 edition 2006
             _ => panic!(),
         }

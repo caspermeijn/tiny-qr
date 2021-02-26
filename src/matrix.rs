@@ -18,6 +18,7 @@
 use crate::array_2d::{Array2D, Coordinate};
 use crate::qr_version::Version;
 use std::fmt::{Debug, Display, Formatter, Write};
+use std::iter::Peekable;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Color {
@@ -293,7 +294,10 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn place_data(&mut self, data: &[u8]) {
+    pub fn place_data<'a, T>(&mut self, data: T)
+    where
+        T: Iterator<Item = &'a u8>,
+    {
         let data_iter = BitIterator::new(data);
         let pos_iter = PositionIterator::new(self.data.size());
 
@@ -486,41 +490,45 @@ impl Iterator for PositionIterator {
     }
 }
 
-#[derive(Copy, Clone)]
-struct BitIterator<'a> {
-    data: &'a [u8],
-    byte_pos: usize,
+struct BitIterator<'a, T>
+where
+    T: Iterator<Item = &'a u8>,
+{
+    data_iter: Peekable<T>,
     bit_pos: usize,
 }
 
-impl<'a> BitIterator<'a> {
-    fn new(data: &'a [u8]) -> BitIterator {
+impl<'a, T> BitIterator<'a, T>
+where
+    T: Iterator<Item = &'a u8>,
+{
+    fn new(data_iter: T) -> Self {
         BitIterator {
-            data,
-            byte_pos: 0,
+            data_iter: data_iter.peekable(),
             bit_pos: 7,
         }
     }
 }
 
-impl<'a> Iterator for BitIterator<'a> {
+impl<'a, T> Iterator for BitIterator<'a, T>
+where
+    T: Iterator<Item = &'a u8>,
+{
     // we will be counting with usize
     type Item = bool;
 
     // next() is the only required method
     fn next(&mut self) -> Option<Self::Item> {
-        if self.byte_pos < self.data.len() {
-            let byte = self.data[self.byte_pos];
+        if let Some(&&byte) = self.data_iter.peek() {
             let mask = 1 << self.bit_pos;
             let result = byte & mask != 0;
 
             if self.bit_pos == 0 {
+                self.data_iter.next();
                 self.bit_pos = 7;
-                self.byte_pos += 1;
             } else {
                 self.bit_pos -= 1;
             }
-
             Some(result)
         } else {
             None
@@ -676,12 +684,15 @@ mod tests {
         matrix.fill_reserved();
         matrix.fill_timing_pattern();
 
-        matrix.place_data(&[
-            0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
-            0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
-            0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
-            0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101,
-        ]);
+        matrix.place_data(
+            [
+                0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
+                0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
+                0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
+                0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101,
+            ]
+            .iter(),
+        );
 
         assert_eq!(
             format!("{:?}", matrix),

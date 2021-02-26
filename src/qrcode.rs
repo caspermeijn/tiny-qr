@@ -15,11 +15,14 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use crate::blocks::BlockIterator;
 use crate::encoding::{AlphanumericDataEncoder, EncodingMode, NumericDataEncoder};
 use crate::error_correction::{ErrorCorrectionEncoder, ErrorCorrectionLevel};
 use crate::format::FormatEncoder;
 use crate::matrix::Matrix;
 use crate::qr_version::Version;
+
+const MAX_VERSION: usize = 4;
 
 pub struct QrCodeBuilder<'a> {
     version: Option<u8>,
@@ -28,7 +31,10 @@ pub struct QrCodeBuilder<'a> {
     text: Option<&'a str>,
 }
 
-impl<'a> QrCodeBuilder<'a> {
+impl<'a> QrCodeBuilder<'a>
+where
+    [u8; MAX_VERSION * 4 + 17]: Sized,
+{
     pub fn new() -> Self {
         Self {
             version: None,
@@ -61,8 +67,9 @@ impl<'a> QrCodeBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> QrCode<2> {
-        let selected_version_number = self.version.unwrap_or(2);
+    pub fn build(self) -> QrCode<MAX_VERSION> {
+        let selected_version_number = self.version.unwrap_or(MAX_VERSION as u8);
+        assert!(selected_version_number <= MAX_VERSION as u8);
         let selected_version = Version {
             version: selected_version_number,
         };
@@ -101,7 +108,9 @@ impl<'a> QrCodeBuilder<'a> {
 
         encoder.encode(&mut buffer);
 
-        matrix.place_data(buffer.data());
+        let data = BlockIterator::new(buffer.data(), selected_version, self.error_correction_level);
+
+        matrix.place_data(data);
 
         let mut matrix = matrix.mask(selected_mask_reference);
 
@@ -211,8 +220,6 @@ __█_█_▓█___█__██_____
             .with_text("HTTPS://CASPERMEIJN.NL")
             .build();
 
-        println!("{:?}", qr_code.matrix);
-
         assert_eq!(
             format!("{:?}", qr_code.matrix),
             "\
@@ -241,6 +248,55 @@ __█_█_▓█___█__██_____
 ▓░▓▓▓░▓░░█_█___██____████
 ▓░░░░░▓░▓_███_█████_█_██_
 ▓▓▓▓▓▓▓░░██████_____██_██
+"
+        );
+    }
+
+    #[test]
+    fn alphanumeric_version_4() {
+        let qr_code = QrCodeBuilder::new()
+            .with_version(4)
+            .with_error_correction_level(ErrorCorrectionLevel::High)
+            .with_mask_reference(0b110)
+            .with_text("HTTPS://GITHUB.COM/CASPERMEIJN/TINY-QR")
+            .build();
+
+        assert_eq!(
+            format!("{:?}", qr_code.matrix),
+            "\
+▓▓▓▓▓▓▓░░__██__█_█_█_██__░▓▓▓▓▓▓▓
+▓░░░░░▓░░█_███_█_____████░▓░░░░░▓
+▓░▓▓▓░▓░▓__█______██___██░▓░▓▓▓░▓
+▓░▓▓▓░▓░▓___████__█████_█░▓░▓▓▓░▓
+▓░▓▓▓░▓░░_█____████_█__█_░▓░▓▓▓░▓
+▓░░░░░▓░░__██_█__█__█___█░▓░░░░░▓
+▓▓▓▓▓▓▓░▓░▓░▓░▓░▓░▓░▓░▓░▓░▓▓▓▓▓▓▓
+░░░░░░░░░__███__█__█___█_░░░░░░░░
+░░░▓▓░▓▓░████_█_██_███_█_░░░░▓▓░░
+_█____░_█____█________█_█_█████_█
+_███_█▓█___█__███__███_████___███
+_█_█_█░__███___█████___█___██_██_
+███_██▓_█_______████████____█_█_█
+██___█░__█__█_█____█__██_█____█__
+_██_██▓█__█_████_█_██_█_███_█_██_
+█___██░███_█__█████__███_█__█_██_
+__█___▓_____██_███_____█_█__███_█
+███__█░_█_████_█_████_██_█___██__
+____█_▓███__█_████__█_█_____█_█_█
+_███_█░_█_███_█__███_██__█_██____
+__█_█_▓_█_███_████_█_███__███__██
+�_█_██░___████_████_█___█_███████
+��_█_█▓███__█_█_█████_██_██_█__█_
+��█_██░____██___█__█___██_████___
+��████▓██___█__██_██__██▓▓▓▓▓____
+░░░░░░░░▓__██_██_███_█_█▓░░░▓_█_█
+▓▓▓▓▓▓▓░▓_█_██_███_██__█▓░▓░▓██__
+▓░░░░░▓░░█__█__███___██_▓░░░▓_███
+▓░▓▓▓░▓░▓█_█_█____█__███▓▓▓▓▓████
+▓░▓▓▓░▓░▓█__██_█__██████_______█_
+▓░▓▓▓░▓░░████████__████_█___██_██
+▓░░░░░▓░░__██_█___█__███____██_█_
+▓▓▓▓▓▓▓░░█__██_█_█__███_█_██__██_
 "
         );
     }

@@ -22,6 +22,7 @@
 #![feature(const_evaluatable_checked)]
 
 mod array_2d;
+mod blocks;
 pub mod buffer;
 mod encoding;
 mod error_correction;

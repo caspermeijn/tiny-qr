@@ -15,11 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use crate::blocks::BlockLengthIterator;
 use crate::buffer::Buffer;
 use crate::qr_version::Version;
 
 /// Qr codes use Reed–Solomon error correction
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum ErrorCorrectionLevel {
     /// Allows recovery of 7% of missing data
     Low,
@@ -39,12 +40,13 @@ pub struct ErrorCorrectionEncoder {
 
 impl ErrorCorrectionEncoder {
     pub fn encode(&self, buffer: &mut Buffer) {
-        let ecc_len = self
-            .version
-            .error_correction_codeword_count(self.error_correction);
-        let encoder = reed_solomon::Encoder::new(ecc_len);
-        let ecc_buffer = encoder.encode(buffer.data());
-        buffer.append_bytes(ecc_buffer.ecc());
+        let blocks = BlockLengthIterator::new(self.version, self.error_correction);
+        for block in blocks {
+            let encoder = reed_solomon::Encoder::new(block.ecc_len);
+            let ecc_buffer =
+                encoder.encode(&buffer.data()[block.data_pos..block.data_pos + block.data_len]);
+            buffer.append_bytes(ecc_buffer.ecc());
+        }
     }
 }
 
@@ -77,6 +79,38 @@ mod tests {
                 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
                 0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
                 0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101
+            ]
+        )
+    }
+
+    #[test]
+    fn error_correction_encoding_5q() {
+        // Version 1-M with text "01234567"
+        let mut buffer = Buffer::new();
+        buffer.append_bytes(&[
+            67, 85, 70, 134, 87, 38, 85, 194, 119, 50, 6, 18, 6, 103, 38, 246, 246, 66, 7, 118,
+            134, 242, 7, 38, 86, 22, 198, 199, 146, 6, 182, 230, 247, 119, 50, 7, 118, 134, 87, 38,
+            82, 6, 134, 151, 50, 7, 70, 247, 118, 86, 194, 6, 151, 50, 16, 236, 17, 236, 17, 236,
+            17, 236,
+        ]);
+
+        let encoder = ErrorCorrectionEncoder {
+            version: Version { version: 5 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+        };
+
+        encoder.encode(&mut buffer);
+        assert_eq!(
+            buffer.data(),
+            [
+                67, 85, 70, 134, 87, 38, 85, 194, 119, 50, 6, 18, 6, 103, 38, 246, 246, 66, 7, 118,
+                134, 242, 7, 38, 86, 22, 198, 199, 146, 6, 182, 230, 247, 119, 50, 7, 118, 134, 87,
+                38, 82, 6, 134, 151, 50, 7, 70, 247, 118, 86, 194, 6, 151, 50, 16, 236, 17, 236,
+                17, 236, 17, 236, 213, 199, 11, 45, 115, 247, 241, 223, 229, 248, 154, 117, 154,
+                111, 86, 161, 111, 39, 87, 204, 96, 60, 202, 182, 124, 157, 200, 134, 27, 129, 209,
+                17, 163, 163, 120, 133, 148, 116, 177, 212, 76, 133, 75, 242, 238, 76, 195, 230,
+                189, 10, 108, 240, 192, 141, 235, 159, 5, 173, 24, 147, 59, 33, 106, 40, 255, 172,
+                82, 2, 131, 32, 178, 236,
             ]
         )
     }
