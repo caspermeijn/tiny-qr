@@ -49,6 +49,7 @@ impl<const N: usize> Matrix<N> {
 #[cfg(test)]
 mod tests {
     use crate::matrix::{Color, Matrix, Module};
+    use alloc::format;
 
     #[test]
     fn mask_pattern0() {

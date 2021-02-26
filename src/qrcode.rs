@@ -137,6 +137,7 @@ where
 mod tests {
     use crate::error_correction::ErrorCorrectionLevel;
     use crate::qrcode::QrCodeBuilder;
+    use alloc::format;
 
     #[test]
     fn numeric_version_1() {

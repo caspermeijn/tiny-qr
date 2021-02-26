@@ -17,7 +17,7 @@
 
 use crate::error_correction::ErrorCorrectionLevel;
 use crate::qr_version::Version;
-use std::iter::Chain;
+use core::iter::Chain;
 
 pub struct BlockIterator<'a> {
     iter: Chain<BlockDataIterator<'a>, BlockEccIterator<'a>>,
@@ -292,7 +292,7 @@ mod tests {
             ErrorCorrectionLevel::Quartile,
         );
 
-        for (i, (left, right)) in iter.zip([
+        assert!(iter.eq([
             67, 246, 182, 70, 85, 246, 230, 247, 70, 66, 247, 118, 134, 7, 119, 86, 87, 118, 50,
             194, 38, 134, 7, 6, 85, 242, 118, 151, 194, 7, 134, 50, 119, 38, 87, 16, 50, 86, 38,
             236, 6, 22, 82, 17, 18, 198, 6, 236, 6, 199, 134, 17, 103, 146, 151, 236, 38, 6, 50,
@@ -300,10 +300,8 @@ mod tests {
             115, 202, 76, 24, 247, 182, 133, 147, 241, 124, 75, 59, 223, 157, 242, 33, 229, 200,
             238, 106, 248, 134, 76, 40, 154, 27, 195, 255, 117, 129, 230, 172, 154, 209, 189, 82,
             111, 17, 10, 2, 86, 163, 108, 131, 161, 163, 240, 32, 111, 120, 192, 178, 39, 133, 141,
-            236u8
+            236,
         ]
-            .iter()).enumerate() {
-            assert_eq!(left, right, "Position {}", i);
-        }
+        .iter()));
     }
 }

@@ -17,8 +17,8 @@
 
 use crate::array_2d::{Array2D, Coordinate};
 use crate::qr_version::Version;
-use std::fmt::{Debug, Display, Formatter, Write};
-use std::iter::Peekable;
+use core::fmt::{Debug, Display, Formatter, Write};
+use core::iter::Peekable;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum Color {
@@ -348,7 +348,7 @@ impl<const N: usize> Matrix<N> {
 }
 
 impl<const N: usize> Debug for Matrix<N> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.data.rows().try_for_each(|mut row| {
             row.try_for_each(|module| match module {
                 Module::Filled(color) => match color {
@@ -368,7 +368,7 @@ impl<const N: usize> Debug for Matrix<N> {
 }
 
 impl<const N: usize> Display for Matrix<N> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let iter1 = self.data.rows().step_by(2);
         let iter2 = self.data.rows().skip(1).step_by(2);
         iter1.zip(iter2).try_for_each(|rows| {
@@ -538,8 +538,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::matrix::{Color, Matrix, Module};
+    use crate::matrix::Matrix;
     use crate::qr_version::Version;
+    use alloc::format;
 
     #[test]
     fn finder_pattern_version_1() {
