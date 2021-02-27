@@ -116,7 +116,7 @@ where
 
         let format_encoder = FormatEncoder {
             error_correction_level: self.error_correction_level,
-            mask_reference: self.mask_reference.unwrap(),
+            mask_reference: selected_mask_reference,
         };
 
         let format = format_encoder.encode();

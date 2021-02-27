@@ -81,6 +81,10 @@ impl<T, const N: usize> Array2D<T, N> {
         Rows { data: &self, x: 0 }
     }
 
+    pub fn columns(&self) -> Columns<'_, T, N> {
+        Columns { data: &self, y: 0 }
+    }
+
     pub fn set_size(&mut self, size: Coordinate) {
         self.size = size;
     }
@@ -136,3 +140,55 @@ impl<'a, T, const N: usize> Iterator for Row<'a, T, N> {
         }
     }
 }
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Columns<'a, T, const N: usize> {
+    data: &'a Array2D<T, N>,
+    y: usize,
+}
+
+impl<'a, T, const N: usize> Iterator for Columns<'a, T, N> {
+    // we will be counting with usize
+    type Item = Column<'a, T, N>;
+
+    // next() is the only required method
+    fn next(&mut self) -> Option<Self::Item> {
+        let size = self.data.size();
+        if self.y < size.y {
+            let result = Column {
+                data: self.data,
+                x: 0,
+                y: self.y,
+            };
+            self.y += 1;
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct Column<'a, T, const N: usize> {
+    data: &'a Array2D<T, N>,
+    x: usize,
+    y: usize,
+}
+
+impl<'a, T, const N: usize> Iterator for Column<'a, T, N> {
+    // we will be counting with usize
+    type Item = &'a T;
+
+    // next() is the only required method
+    fn next(&mut self) -> Option<Self::Item> {
+        let size = self.data.size();
+        if self.x < size.x {
+            let result = &self.data[(self.x, self.y).into()];
+            self.x += 1;
+            Some(result)
+        } else {
+            None
+        }
+    }
+}
+
