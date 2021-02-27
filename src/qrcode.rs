@@ -15,9 +15,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use crate::blocks::BlockIterator;
-use crate::encoding::{AlphanumericDataEncoder, EncodingMode, NumericDataEncoder};
-use crate::error_correction::{ErrorCorrectionEncoder, ErrorCorrectionLevel};
+use crate::encoding::StringDataEncoder;
+use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
 use crate::format::FormatEncoder;
 use crate::matrix::Matrix;
 use crate::qr_version::Version;
@@ -76,41 +75,17 @@ where
         let selected_mask_reference = self.mask_reference.unwrap_or(0);
         let data = self.text.unwrap();
 
-        let encoding = EncodingMode::select_best_encoding(data);
-        let mut buffer = match encoding {
-            Some(EncodingMode::Numeric) => {
-                let encoder = NumericDataEncoder {
-                    version: selected_version,
-                    error_correction: self.error_correction_level,
-                };
-                encoder.encode(data)
-            }
-            Some(EncodingMode::Alphanumeric) => {
-                let encoder = AlphanumericDataEncoder {
-                    version: selected_version,
-                    error_correction: self.error_correction_level,
-                };
-                encoder.encode(data)
-            }
-            _ => {
-                panic!("Sorry, this input is not yet supported");
-            }
-        };
-
-        let mut matrix = Matrix::new();
-        matrix.set_version(selected_version);
-        matrix.fill_symbol();
-
-        let encoder = ErrorCorrectionEncoder {
+        let encoder = StringDataEncoder {
             version: selected_version,
             error_correction: self.error_correction_level,
         };
+        let encoded_data = encoder.encode(data);
 
-        encoder.encode(&mut buffer);
+        let mut matrix = Matrix::new();
 
-        let data = BlockIterator::new(buffer.data(), selected_version, self.error_correction_level);
+        let error_corrected_data = add_error_correction(encoded_data);
 
-        matrix.place_data(data);
+        matrix.place_data(error_corrected_data);
 
         let mut matrix = matrix.mask(selected_mask_reference);
 

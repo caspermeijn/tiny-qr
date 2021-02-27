@@ -17,6 +17,7 @@
 
 use crate::blocks::BlockLengthIterator;
 use crate::buffer::Buffer;
+use crate::encoding::EncodedData;
 use crate::qr_version::Version;
 
 /// Qr codes use Reed–Solomon error correction
@@ -32,28 +33,35 @@ pub enum ErrorCorrectionLevel {
     High,
 }
 
-pub struct ErrorCorrectionEncoder {
-    // TODO: Combine Version and ErrorCorrectionLevel
+pub struct ErrorCorrectedData {
     pub(crate) version: Version,
     pub(crate) error_correction: ErrorCorrectionLevel,
+    pub(crate) buffer: Buffer,
 }
 
-impl ErrorCorrectionEncoder {
-    pub fn encode(&self, buffer: &mut Buffer) {
-        let blocks = BlockLengthIterator::new(self.version, self.error_correction);
-        for block in blocks {
-            let encoder = reed_solomon::Encoder::new(block.ecc_len);
-            let ecc_buffer =
-                encoder.encode(&buffer.data()[block.data_pos..block.data_pos + block.data_len]);
-            buffer.append_bytes(ecc_buffer.ecc());
-        }
+pub fn add_error_correction(data: EncodedData) -> ErrorCorrectedData {
+    let mut buffer = data.buffer;
+
+    let blocks = BlockLengthIterator::new(data.version, data.error_correction);
+    for block in blocks {
+        let encoder = reed_solomon::Encoder::new(block.ecc_len);
+        let ecc_buffer =
+            encoder.encode(&buffer.data()[block.data_pos..block.data_pos + block.data_len]);
+        buffer.append_bytes(ecc_buffer.ecc());
+    }
+
+    ErrorCorrectedData {
+        version: data.version,
+        error_correction: data.error_correction,
+        buffer,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::buffer::Buffer;
-    use crate::error_correction::{ErrorCorrectionEncoder, ErrorCorrectionLevel};
+    use crate::encoding::EncodedData;
+    use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
     use crate::qr_version::Version;
 
     #[test]
@@ -66,14 +74,15 @@ mod tests {
             0b11101100, 0b00010001,
         ]);
 
-        let encoder = ErrorCorrectionEncoder {
+        let data = EncodedData {
             version: Version { version: 1 },
             error_correction: ErrorCorrectionLevel::Medium,
+            buffer,
         };
 
-        encoder.encode(&mut buffer);
+        let error_corrected_data = add_error_correction(data);
         assert_eq!(
-            buffer.data(),
+            error_corrected_data.buffer.data(),
             [
                 0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
                 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
@@ -94,14 +103,15 @@ mod tests {
             17, 236,
         ]);
 
-        let encoder = ErrorCorrectionEncoder {
+        let data = EncodedData {
             version: Version { version: 5 },
             error_correction: ErrorCorrectionLevel::Quartile,
+            buffer,
         };
 
-        encoder.encode(&mut buffer);
+        let error_corrected_data = add_error_correction(data);
         assert_eq!(
-            buffer.data(),
+            error_corrected_data.buffer.data(),
             [
                 67, 85, 70, 134, 87, 38, 85, 194, 119, 50, 6, 18, 6, 103, 38, 246, 246, 66, 7, 118,
                 134, 242, 7, 38, 86, 22, 198, 199, 146, 6, 182, 230, 247, 119, 50, 7, 118, 134, 87,

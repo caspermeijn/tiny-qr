@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-use crate::error_correction::ErrorCorrectionLevel;
+use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
 use crate::qr_version::Version;
 use core::iter::Chain;
 
@@ -23,15 +23,13 @@ pub struct BlockIterator<'a> {
     iter: Chain<BlockDataIterator<'a>, BlockEccIterator<'a>>,
 }
 
-impl BlockIterator<'_> {
-    pub fn new(
-        data: &[u8],
-        version: Version,
-        error_correction: ErrorCorrectionLevel,
-    ) -> BlockIterator {
-        let data_iter = BlockDataIterator::new(data, version, error_correction);
-        let ecc_iter = BlockEccIterator::new(data, version, error_correction);
-        BlockIterator {
+impl<'a> BlockIterator<'a> {
+    pub fn new(data: &'a ErrorCorrectedData) -> Self {
+        let data_iter =
+            BlockDataIterator::new(data.buffer.data(), data.version, data.error_correction);
+        let ecc_iter =
+            BlockEccIterator::new(data.buffer.data(), data.version, data.error_correction);
+        Self {
             iter: data_iter.chain(ecc_iter),
         }
     }
@@ -66,12 +64,10 @@ impl<'a> BlockDataIterator<'a> {
         if let Some(block) = self.blocks.next() {
             if self.data_offset < block.data_len {
                 Some(block)
+            } else if block.block_number < block.block_count - 1 {
+                self.next_block_length()
             } else {
-                if block.block_number < block.block_count - 1 {
-                    self.next_block_length()
-                } else {
-                    None
-                }
+                None
             }
         } else {
             self.data_offset += 1;
@@ -207,7 +203,8 @@ impl Iterator for BlockLengthIterator {
 #[cfg(test)]
 mod tests {
     use crate::blocks::{BlockIterator, BlockLength, BlockLengthIterator};
-    use crate::error_correction::ErrorCorrectionLevel;
+    use crate::buffer::Buffer;
+    use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
     use crate::qr_version::Version;
 
     #[test]
@@ -275,7 +272,8 @@ mod tests {
 
     #[test]
     fn block_iter_5q() {
-        let data = [
+        let mut buffer = Buffer::new();
+        buffer.append_bytes(&[
             67, 85, 70, 134, 87, 38, 85, 194, 119, 50, 6, 18, 6, 103, 38, 246, 246, 66, 7, 118,
             134, 242, 7, 38, 86, 22, 198, 199, 146, 6, 182, 230, 247, 119, 50, 7, 118, 134, 87, 38,
             82, 6, 134, 151, 50, 7, 70, 247, 118, 86, 194, 6, 151, 50, 16, 236, 17, 236, 17, 236,
@@ -284,13 +282,15 @@ mod tests {
             120, 133, 148, 116, 177, 212, 76, 133, 75, 242, 238, 76, 195, 230, 189, 10, 108, 240,
             192, 141, 235, 159, 5, 173, 24, 147, 59, 33, 106, 40, 255, 172, 82, 2, 131, 32, 178,
             236,
-        ];
+        ]);
 
-        let iter = BlockIterator::new(
-            &data,
-            Version { version: 5 },
-            ErrorCorrectionLevel::Quartile,
-        );
+        let data = ErrorCorrectedData {
+            buffer,
+            version: Version { version: 5 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+        };
+
+        let iter = BlockIterator::new(&data);
 
         assert!(iter.eq([
             67, 246, 182, 70, 85, 246, 230, 247, 70, 66, 247, 118, 134, 7, 119, 86, 87, 118, 50,

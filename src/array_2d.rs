@@ -86,6 +86,8 @@ impl<T, const N: usize> Array2D<T, N> {
     }
 
     pub fn set_size(&mut self, size: Coordinate) {
+        assert!(size.x <= N);
+        assert!(size.y <= N);
         self.size = size;
     }
 }
@@ -191,4 +193,3 @@ impl<'a, T, const N: usize> Iterator for Column<'a, T, N> {
         }
     }
 }
-

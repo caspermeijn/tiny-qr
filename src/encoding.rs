@@ -252,6 +252,47 @@ impl EncodingMode {
     }
 }
 
+pub struct EncodedData {
+    pub(crate) version: Version,
+    pub(crate) error_correction: ErrorCorrectionLevel,
+    pub(crate) buffer: Buffer,
+}
+
+pub struct StringDataEncoder {
+    pub(crate) version: Version,
+    pub(crate) error_correction: ErrorCorrectionLevel,
+}
+
+impl StringDataEncoder {
+    pub fn encode(&self, text: &str) -> EncodedData {
+        let encoding = EncodingMode::select_best_encoding(text);
+        let buffer = match encoding {
+            Some(EncodingMode::Numeric) => {
+                let encoder = NumericDataEncoder {
+                    version: self.version,
+                    error_correction: self.error_correction,
+                };
+                encoder.encode(text)
+            }
+            Some(EncodingMode::Alphanumeric) => {
+                let encoder = AlphanumericDataEncoder {
+                    version: self.version,
+                    error_correction: self.error_correction,
+                };
+                encoder.encode(text)
+            }
+            _ => {
+                panic!("Sorry, this input is not yet supported");
+            }
+        };
+        EncodedData {
+            version: self.version,
+            error_correction: self.error_correction,
+            buffer,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::encoding::{AlphanumericDataEncoder, EncodingMode, NumericDataEncoder};

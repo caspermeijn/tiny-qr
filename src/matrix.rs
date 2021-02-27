@@ -16,6 +16,8 @@
  */
 
 use crate::array_2d::{Array2D, Coordinate};
+use crate::blocks::BlockIterator;
+use crate::error_correction::ErrorCorrectedData;
 use crate::qr_version::Version;
 use core::fmt::{Debug, Display, Formatter, Write};
 use core::iter::Peekable;
@@ -82,7 +84,7 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn fill_whole(&mut self, data: Module) {
+    pub(crate) fn fill_whole(&mut self, data: Module) {
         let size = self.data.size();
         for x in 0..size.x {
             for y in 0..size.y {
@@ -91,11 +93,11 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn fill_module(&mut self, pos: Coordinate, data: Module) {
+    fn fill_module(&mut self, pos: Coordinate, data: Module) {
         self.data[pos] = data;
     }
 
-    pub fn fill_line(&mut self, pos1: Coordinate, pos2: Coordinate, data: Module) {
+    fn fill_line(&mut self, pos1: Coordinate, pos2: Coordinate, data: Module) {
         if pos1.x == pos2.x {
             let x = pos1.x;
             assert!(pos1.y < pos2.y);
@@ -113,7 +115,7 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn fill_finder_pattern(&mut self, pos: Coordinate) {
+    fn fill_finder_pattern(&mut self, pos: Coordinate) {
         let black = Module::Static(Color::Black);
         let white = Module::Static(Color::White);
 
@@ -166,7 +168,7 @@ impl<const N: usize> Matrix<N> {
         self.fill_module(Coordinate::new(pos.x + 4, pos.y + 4), black);
     }
 
-    pub fn fill_finder_patterns(&mut self) {
+    fn fill_finder_patterns(&mut self) {
         let white = Module::Static(Color::White);
         let size = self.data.size();
 
@@ -202,7 +204,7 @@ impl<const N: usize> Matrix<N> {
         );
     }
 
-    pub fn fill_alignment_pattern(&mut self, center_pos: Coordinate) {
+    fn fill_alignment_pattern(&mut self, center_pos: Coordinate) {
         let black = Module::Static(Color::Black);
         let white = Module::Static(Color::White);
 
@@ -239,7 +241,7 @@ impl<const N: usize> Matrix<N> {
         );
     }
 
-    pub fn fill_alignment_patterns(&mut self) {
+    fn fill_alignment_patterns(&mut self) {
         let size = self.data.size();
 
         if size.x > 21 {
@@ -247,7 +249,7 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn fill_reserved(&mut self) {
+    fn fill_reserved(&mut self) {
         let reserved = Module::Reserved;
         let size = self.data.size();
 
@@ -272,7 +274,7 @@ impl<const N: usize> Matrix<N> {
         );
     }
 
-    pub fn fill_timing_pattern(&mut self) {
+    fn fill_timing_pattern(&mut self) {
         fn color(i: usize) -> Module {
             if i % 2 == 0 {
                 Module::Static(Color::Black)
@@ -294,10 +296,12 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn place_data<'a, T>(&mut self, data: T)
-    where
-        T: Iterator<Item = &'a u8>,
-    {
+    pub fn place_data(&mut self, error_corrected_data: ErrorCorrectedData) {
+        self.set_version(error_corrected_data.version);
+        self.fill_symbol();
+
+        let data = BlockIterator::new(&error_corrected_data);
+
         let data_iter = BitIterator::new(data);
         let pos_iter = PositionIterator::new(self.data.size());
 
@@ -315,7 +319,7 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn fill_symbol(&mut self) {
+    fn fill_symbol(&mut self) {
         self.fill_finder_patterns();
         self.fill_reserved();
         self.fill_timing_pattern();
@@ -341,7 +345,8 @@ impl<const N: usize> Matrix<N> {
         );
     }
 
-    pub fn set_version(&mut self, version: Version) {
+    fn set_version(&mut self, version: Version) {
+        assert!(version.width() <= N);
         self.data
             .set_size((version.width(), version.width()).into());
     }
@@ -538,6 +543,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::buffer::Buffer;
+    use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
     use crate::matrix::Matrix;
     use crate::qr_version::Version;
     use alloc::format;
@@ -681,19 +688,21 @@ mod tests {
     #[test]
     fn placement() {
         let mut matrix = Matrix::<21>::new();
-        matrix.fill_finder_patterns();
-        matrix.fill_reserved();
-        matrix.fill_timing_pattern();
 
-        matrix.place_data(
-            [
-                0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
-                0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
-                0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
-                0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101,
-            ]
-            .iter(),
-        );
+        let mut buffer = Buffer::new();
+        buffer.append_bytes(&[
+            0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
+            0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
+            0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
+            0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101,
+        ]);
+        let data = ErrorCorrectedData {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+            buffer,
+        };
+
+        matrix.place_data(data);
 
         assert_eq!(
             format!("{:?}", matrix),

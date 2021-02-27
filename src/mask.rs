@@ -72,27 +72,58 @@ impl<const N: usize> Matrix<N> {
 
     fn score_blocks(&self) -> usize {
         let size = self.data.size();
-        (0..size.x - 1).map(|x| {
-            (0..size.y - 1).map(|y| {
-                let top_left: Color = self.data[(x,y).into()].into();
-                let top_right: Color = self.data[(x,y + 1).into()].into();
-                let bottom_left: Color = self.data[(x + 1,y).into()].into();
-                let bottom_right: Color = self.data[(x + 1,y + 1).into()].into();
-                if top_left == top_right &&
-                    top_left == bottom_left &&
-                    top_left == bottom_right {
-                    3
-                } else {
-                    0
-                }
-            }).sum::<usize>()
-        }).sum()
+        (0..size.x - 1)
+            .map(|x| {
+                (0..size.y - 1)
+                    .map(|y| {
+                        let top_left: Color = self.data[(x, y).into()].into();
+                        let top_right: Color = self.data[(x, y + 1).into()].into();
+                        let bottom_left: Color = self.data[(x + 1, y).into()].into();
+                        let bottom_right: Color = self.data[(x + 1, y + 1).into()].into();
+                        if top_left == top_right
+                            && top_left == bottom_left
+                            && top_left == bottom_right
+                        {
+                            3
+                        } else {
+                            0
+                        }
+                    })
+                    .sum::<usize>()
+            })
+            .sum()
     }
 
     fn score_match_pattern<'a, T>(mut iter: T) -> usize
-        where T: Iterator<Item = &'a Module>{
-        let match_pattern1 = [Color::Black, Color::White, Color::Black, Color::Black, Color::Black, Color::White, Color::Black, Color::White, Color::White, Color::White, Color::White, ];
-        let match_pattern2 = [ Color::White, Color::White, Color::White, Color::White, Color::Black, Color::White, Color::Black, Color::Black, Color::Black, Color::White, Color::Black,];
+    where
+        T: Iterator<Item = &'a Module>,
+    {
+        let match_pattern1 = [
+            Color::Black,
+            Color::White,
+            Color::Black,
+            Color::Black,
+            Color::Black,
+            Color::White,
+            Color::Black,
+            Color::White,
+            Color::White,
+            Color::White,
+            Color::White,
+        ];
+        let match_pattern2 = [
+            Color::White,
+            Color::White,
+            Color::White,
+            Color::White,
+            Color::Black,
+            Color::White,
+            Color::Black,
+            Color::Black,
+            Color::Black,
+            Color::White,
+            Color::Black,
+        ];
         let initial_pattern = |iter: &mut T| {
             let mut pattern = [Color::White; 11];
             for i in 0..11 {
@@ -102,10 +133,10 @@ impl<const N: usize> Matrix<N> {
             pattern
         };
 
-        let shift_pattern = |mut pattern: [Color;11], iter: &mut T| -> Option<[Color;11]>{
+        let shift_pattern = |mut pattern: [Color; 11], iter: &mut T| -> Option<[Color; 11]> {
             if let Some(&next) = iter.next() {
                 for i in 0..10 {
-                    pattern[i] = pattern[i+1];
+                    pattern[i] = pattern[i + 1];
                 }
                 pattern[10] = next.into();
                 Some(pattern)
@@ -114,9 +145,12 @@ impl<const N: usize> Matrix<N> {
             }
         };
 
-
         let mut pattern = initial_pattern(&mut iter);
-        let mut total = if pattern == match_pattern1 || pattern == match_pattern2 { 1 } else { 0 };
+        let mut total = if pattern == match_pattern1 || pattern == match_pattern2 {
+            1
+        } else {
+            0
+        };
         while let Some(shifted_pattern) = shift_pattern(pattern, &mut iter) {
             pattern = shifted_pattern;
             if pattern == match_pattern1 || pattern == match_pattern2 {
@@ -126,39 +160,51 @@ impl<const N: usize> Matrix<N> {
         total
     }
 
-
     fn score_pattern_horizontal(&self) -> usize {
-        self.data.rows().map(|row| {
-            Self::score_match_pattern(row)
-        }).sum::<usize>() * 40
+        self.data
+            .rows()
+            .map(Self::score_match_pattern)
+            .sum::<usize>()
+            * 40
     }
 
     fn score_pattern_vertical(&self) -> usize {
-        self.data.columns().map(|column| {
-            Self::score_match_pattern(column)
-        }).sum::<usize>() * 40
+        self.data
+            .columns()
+            .map(Self::score_match_pattern)
+            .sum::<usize>()
+            * 40
     }
 
     fn score_proportion(&self) -> usize {
-        let black_count: usize = self.data.rows().map(|row| {
-            row.filter(|&&module| {
-                let color:Color = module.into();
-                color == Color::Black
-            }).count()
-        }).sum();
+        let black_count: usize = self
+            .data
+            .rows()
+            .map(|row| {
+                row.filter(|&&module| {
+                    let color: Color = module.into();
+                    color == Color::Black
+                })
+                .count()
+            })
+            .sum();
         let size = self.data.size();
         let percentage = black_count * 100 / (size.x * size.y);
-        let k = if percentage < 50 { 50 - percentage } else { percentage - 50};
+        let k = if percentage < 50 {
+            50 - percentage
+        } else {
+            percentage - 50
+        };
         k / 5 * 10
     }
 
     fn score(&self) -> usize {
-        self.score_adjacent_horizontal() +
-        self.score_adjacent_vertical() +
-        self.score_blocks() +
-        self.score_pattern_horizontal() +
-        self.score_pattern_vertical() +
-        self.score_proportion()
+        self.score_adjacent_horizontal()
+            + self.score_adjacent_vertical()
+            + self.score_blocks()
+            + self.score_pattern_horizontal()
+            + self.score_pattern_vertical()
+            + self.score_proportion()
     }
 }
 
@@ -208,9 +254,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::buffer::Buffer;
+    use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
     use crate::matrix::{Color, Matrix, Module};
-    use alloc::format;
     use crate::qr_version::Version;
+    use alloc::format;
 
     #[test]
     fn mask_pattern0() {
@@ -486,20 +534,21 @@ ___███___███___███___
 
     #[test]
     fn mask() {
-        let mut matrix = Matrix::<21>::new();
-        matrix.fill_finder_patterns();
-        matrix.fill_reserved();
-        matrix.fill_timing_pattern();
+        let mut buffer = Buffer::new();
+        buffer.append_bytes(&[
+            0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
+            0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
+            0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
+            0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101,
+        ]);
+        let data = ErrorCorrectedData {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+            buffer,
+        };
 
-        matrix.place_data(
-            [
-                0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
-                0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001, 0b11101100, 0b00010001,
-                0b11101100, 0b00010001, 0b10100101, 0b00100100, 0b11010100, 0b11000001, 0b11101101,
-                0b00110110, 0b11000111, 0b10000111, 0b00101100, 0b01010101,
-            ]
-            .iter(),
-        );
+        let mut matrix = Matrix::<21>::new();
+        matrix.place_data(data);
 
         let masked = matrix.mask(0b010);
 
@@ -537,15 +586,20 @@ ___███▓██__█_█__█____
 
     #[test]
     fn score() {
-        let mut matrix = Matrix::<21>::new();
-        matrix.set_version(Version{version: 1});
-        matrix.fill_symbol();
-
         // "HELLO WORLD" with version 1-Q
-        matrix.place_data(
-            [32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236, 168, 72, 22, 82, 217, 54, 156, 0, 46, 15, 180, 122, 16]
-            .iter(),
-        );
+        let mut buffer = Buffer::new();
+        buffer.append_bytes(&[
+            32, 91, 11, 120, 209, 114, 220, 77, 67, 64, 236, 17, 236, 168, 72, 22, 82, 217, 54,
+            156, 0, 46, 15, 180, 122, 16,
+        ]);
+        let data = ErrorCorrectedData {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+            buffer,
+        };
+
+        let mut matrix = Matrix::<21>::new();
+        matrix.place_data(data);
         let masked = matrix.mask(0);
 
         let adjacent_horizontal = masked.score_adjacent_horizontal();
@@ -592,10 +646,6 @@ ___███▓██__█_█__█____
         let masked = matrix.mask(6);
         let total = masked.score();
         assert_eq!(total, 440);
-
-        let masked = matrix.mask(7);
-        let total = masked.score();
-        assert_eq!(total, 829);
 
         let masked = matrix.mask(7);
         let total = masked.score();
