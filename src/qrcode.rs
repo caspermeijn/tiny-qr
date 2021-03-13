@@ -15,13 +15,13 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+use crate::array_2d::Array2D;
 use crate::encoding::StringDataEncoder;
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
-use crate::matrix::{Matrix, Color};
-use crate::qr_version::Version;
-use crate::array_2d::Array2D;
 use crate::mask::ScoreMasked;
-use core::fmt::{Display, Formatter, Write, Debug};
+use crate::matrix::{Color, Matrix};
+use crate::qr_version::Version;
+use core::fmt::{Debug, Display, Formatter, Write};
 
 const MAX_VERSION: usize = 4;
 
@@ -104,11 +104,10 @@ where
 }
 
 impl<const MAX_VERSION: usize> QrCode<MAX_VERSION>
-    where
-        [u8; MAX_VERSION * 4 + 17]: Sized,
+where
+    [u8; MAX_VERSION * 4 + 17]: Sized,
 {
     pub fn from(scored: ScoreMasked<{ MAX_VERSION * 4 + 17 }>) -> Self {
-
         let data = scored.masked.matrix.data;
         let size = data.size();
 
@@ -116,63 +115,61 @@ impl<const MAX_VERSION: usize> QrCode<MAX_VERSION>
         out.set_size(data.size());
         for x in 0..size.x {
             for y in 0..size.y {
-                let pos = (x,y).into();
+                let pos = (x, y).into();
                 out[pos] = data[pos].into();
             }
         }
 
-        Self {
-            data: out
-        }
+        Self { data: out }
     }
 }
 
 impl<const MAX_VERSION: usize> Debug for QrCode<MAX_VERSION>
-    where
-        [u8; MAX_VERSION * 4 + 17]: Sized,
+where
+    [u8; MAX_VERSION * 4 + 17]: Sized,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.data.rows().try_for_each(|mut row| {
-            row.try_for_each(|color|
+            row.try_for_each(|color| {
                 f.write_char(match color {
                     Color::Black => '\u{2588}',
                     Color::White => '_',
                 })
-            )?;
+            })?;
             f.write_char('\n')
         })
     }
 }
 
-    impl<const MAX_VERSION: usize> Display for QrCode<MAX_VERSION>
-        where
-            [u8; MAX_VERSION * 4 + 17]: Sized,
-    {
-        fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-            let iter1 = self.data.rows().step_by(2);
-            let iter2 = self.data.rows().skip(1).step_by(2);
-            iter1.zip(iter2).try_for_each(|rows| {
-                rows.0.zip(rows.1).try_for_each(|(&up, &down)| {
-                    f.write_char(match (up, down) {
-                        (Color::Black, Color::Black) => '\u{2588}',
-                        (Color::Black, Color::White) => '\u{2580}',
-                        (Color::White, Color::Black) => '\u{2584}',
-                        (Color::White, Color::White) => ' ',
-                    })
-                })?;
-                f.write_char('\n')
-            })?;
-
-            let mut last_row = self.data.rows().last().unwrap();
-            last_row.try_for_each(|&up| {
-                f.write_char(match up {
-                    Color::Black => '\u{2580}',
-                    Color::White => ' ',
+impl<const MAX_VERSION: usize> Display for QrCode<MAX_VERSION>
+where
+    [u8; MAX_VERSION * 4 + 17]: Sized,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        let iter1 = self.data.rows().step_by(2);
+        let iter2 = self.data.rows().skip(1).step_by(2);
+        iter1.zip(iter2).try_for_each(|rows| {
+            rows.0.zip(rows.1).try_for_each(|(&up, &down)| {
+                f.write_char(match (up, down) {
+                    (Color::Black, Color::Black) => '\u{2588}',
+                    (Color::Black, Color::White) => '\u{2580}',
+                    (Color::White, Color::Black) => '\u{2584}',
+                    (Color::White, Color::White) => ' ',
                 })
             })?;
             f.write_char('\n')
-        }
+        })?;
+
+        let mut last_row = self.data.rows().last().unwrap();
+        last_row.try_for_each(|&up| {
+            f.write_char(match up {
+                Color::Black => '\u{2580}',
+                Color::White => ' ',
+            })
+        })?;
+        f.write_char('\n')
     }
+}
 
 #[cfg(test)]
 mod tests {
