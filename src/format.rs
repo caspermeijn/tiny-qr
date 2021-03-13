@@ -16,14 +16,33 @@
  */
 
 use crate::error_correction::ErrorCorrectionLevel;
+use crate::mask::Masked;
 
-pub struct FormatEncoder {
-    // TODO: Combine Version and ErrorCorrectionLevel
-    pub(crate) error_correction_level: ErrorCorrectionLevel,
-    pub(crate) mask_reference: u8,
+pub struct Formatted<const N: usize> {
+    pub masked: Masked<N>,
 }
 
-impl FormatEncoder {
+impl<const N: usize> Formatted<N> {
+    pub fn from(masked: Masked<N>) -> Self {
+        let mut masked = masked;
+
+        let format = Self::encode(masked.matrix.error_correction, masked.mask_reference);
+        masked.matrix.place_format(format);
+
+        Self { masked }
+    }
+
+    pub fn encode(error_correction_level: ErrorCorrectionLevel, mask_reference: u8) -> u16 {
+        let error_correction_level = match error_correction_level {
+            ErrorCorrectionLevel::Low => 0b01,
+            ErrorCorrectionLevel::Medium => 0b00,
+            ErrorCorrectionLevel::Quartile => 0b11,
+            ErrorCorrectionLevel::High => 0b10,
+        };
+        let data = (error_correction_level << 3) + mask_reference;
+        Self::masked_sequence(data)
+    }
+
     fn masked_sequence(data_bits: u8) -> u16 {
         match data_bits {
             0 => 0x5412,
@@ -60,16 +79,5 @@ impl FormatEncoder {
             31 => 0x2bed,
             _ => panic!(),
         }
-    }
-
-    pub fn encode(&self) -> u16 {
-        let error_correction_level = match self.error_correction_level {
-            ErrorCorrectionLevel::Low => 0b01,
-            ErrorCorrectionLevel::Medium => 0b00,
-            ErrorCorrectionLevel::Quartile => 0b11,
-            ErrorCorrectionLevel::High => 0b10,
-        };
-        let data = (error_correction_level << 3) + self.mask_reference;
-        Self::masked_sequence(data)
     }
 }

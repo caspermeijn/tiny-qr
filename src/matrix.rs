@@ -17,7 +17,7 @@
 
 use crate::array_2d::{Array2D, Coordinate};
 use crate::blocks::BlockIterator;
-use crate::error_correction::ErrorCorrectedData;
+use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
 use crate::qr_version::Version;
 use core::fmt::{Debug, Display, Formatter, Write};
 use core::iter::Peekable;
@@ -68,18 +68,16 @@ impl From<Module> for Color {
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Matrix<const N: usize> {
+    pub(crate) version: Version,
+    pub(crate) error_correction: ErrorCorrectionLevel,
     pub(crate) data: Array2D<Module, N>,
 }
 
-impl<const N: usize> Default for Matrix<N> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<const N: usize> Matrix<N> {
-    pub fn new() -> Self {
+    pub(crate) fn empty() -> Self {
         Self {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Low,
             data: Array2D::new(),
         }
     }
@@ -296,19 +294,25 @@ impl<const N: usize> Matrix<N> {
         }
     }
 
-    pub fn place_data(&mut self, error_corrected_data: ErrorCorrectedData) {
-        self.set_version(error_corrected_data.version);
-        self.fill_symbol();
+    pub fn from_data(error_corrected_data: ErrorCorrectedData) -> Self {
+        let mut matrix = Self {
+            version: error_corrected_data.version,
+            error_correction: error_corrected_data.error_correction,
+            data: Array2D::new(),
+        };
+
+        matrix.set_version(error_corrected_data.version);
+        matrix.fill_symbol();
 
         let data = BlockIterator::new(&error_corrected_data);
 
         let data_iter = BitIterator::new(data);
-        let pos_iter = PositionIterator::new(self.data.size());
+        let pos_iter = PositionIterator::new(matrix.data.size());
 
         for bit in data_iter {
             for pos in pos_iter {
-                if self.data[pos] == Module::Empty {
-                    self.data[pos] = if bit {
+                if matrix.data[pos] == Module::Empty {
+                    matrix.data[pos] = if bit {
                         Module::Filled(Color::Black)
                     } else {
                         Module::Filled(Color::White)
@@ -317,6 +321,8 @@ impl<const N: usize> Matrix<N> {
                 }
             }
         }
+
+        matrix
     }
 
     fn fill_symbol(&mut self) {
@@ -551,7 +557,7 @@ mod tests {
 
     #[test]
     fn finder_pattern_version_1() {
-        let mut matrix = Matrix::<21>::new();
+        let mut matrix = Matrix::<21>::empty();
         matrix.fill_finder_patterns();
 
         assert_eq!(
@@ -584,7 +590,7 @@ mod tests {
 
     #[test]
     fn reserved_version_1() {
-        let mut matrix = Matrix::<21>::new();
+        let mut matrix = Matrix::<21>::empty();
         matrix.fill_reserved();
 
         assert_eq!(
@@ -617,7 +623,7 @@ mod tests {
 
     #[test]
     fn timing_pattern() {
-        let mut matrix = Matrix::<21>::new();
+        let mut matrix = Matrix::<21>::empty();
         matrix.fill_timing_pattern();
 
         assert_eq!(
@@ -650,7 +656,7 @@ mod tests {
 
     #[test]
     fn symbol_version_2() {
-        let mut matrix = Matrix::<25>::new();
+        let mut matrix = Matrix::<25>::empty();
         matrix.fill_symbol();
 
         assert_eq!(
@@ -687,8 +693,6 @@ mod tests {
 
     #[test]
     fn placement() {
-        let mut matrix = Matrix::<21>::new();
-
         let mut buffer = Buffer::new();
         buffer.append_bytes(&[
             0b00010000, 0b00100000, 0b00001100, 0b01010110, 0b01100001, 0b10000000, 0b11101100,
@@ -702,7 +706,7 @@ mod tests {
             buffer,
         };
 
-        matrix.place_data(data);
+        let mut matrix = Matrix::<21>::from_data(data);
 
         assert_eq!(
             format!("{:?}", matrix),
@@ -734,7 +738,7 @@ mod tests {
 
     #[test]
     fn format() {
-        let mut matrix = Matrix::<21>::new();
+        let mut matrix = Matrix::<21>::empty();
         matrix.fill_reserved();
         matrix.place_format(0b100000011001110);
 
@@ -768,7 +772,7 @@ mod tests {
 
     #[test]
     fn large_matrix_small_pattern() {
-        let mut matrix = Matrix::<100>::new();
+        let mut matrix = Matrix::<100>::empty();
         matrix.set_version(Version { version: 1 });
         matrix.fill_finder_patterns();
 

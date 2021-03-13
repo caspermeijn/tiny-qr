@@ -17,7 +17,6 @@
 
 use crate::encoding::StringDataEncoder;
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
-use crate::format::FormatEncoder;
 use crate::matrix::Matrix;
 use crate::qr_version::Version;
 
@@ -72,7 +71,6 @@ where
         let selected_version = Version {
             version: selected_version_number,
         };
-        let selected_mask_reference = self.mask_reference.unwrap_or(0);
         let data = self.text.unwrap();
 
         let encoder = StringDataEncoder {
@@ -81,23 +79,19 @@ where
         };
         let encoded_data = encoder.encode(data);
 
-        let mut matrix = Matrix::new();
-
         let error_corrected_data = add_error_correction(encoded_data);
 
-        matrix.place_data(error_corrected_data);
+        let matrix = Matrix::from_data(error_corrected_data);
 
-        let mut matrix = matrix.mask(selected_mask_reference);
-
-        let format_encoder = FormatEncoder {
-            error_correction_level: self.error_correction_level,
-            mask_reference: selected_mask_reference,
+        let masked = if let Some(mask_reference) = self.mask_reference {
+            matrix.mask(mask_reference)
+        } else {
+            matrix.best_mask()
         };
 
-        let format = format_encoder.encode();
-        matrix.place_format(format);
-
-        QrCode { matrix }
+        QrCode {
+            matrix: masked.masked.matrix,
+        }
     }
 }
 

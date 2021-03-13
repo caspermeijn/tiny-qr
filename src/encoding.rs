@@ -241,13 +241,13 @@ fn is_char_alphanumeric(c: char) -> bool {
 }
 
 impl EncodingMode {
-    pub fn select_best_encoding(data: &str) -> Option<EncodingMode> {
+    pub fn select_best_encoding(data: &str) -> Result<EncodingMode, ()> {
         if data.chars().all(is_char_numeric) {
-            Some(EncodingMode::Numeric)
+            Ok(EncodingMode::Numeric)
         } else if data.chars().all(is_char_alphanumeric) {
-            Some(EncodingMode::Alphanumeric)
+            Ok(EncodingMode::Alphanumeric)
         } else {
-            None
+            Err(())
         }
     }
 }
@@ -267,14 +267,14 @@ impl StringDataEncoder {
     pub fn encode(&self, text: &str) -> EncodedData {
         let encoding = EncodingMode::select_best_encoding(text);
         let buffer = match encoding {
-            Some(EncodingMode::Numeric) => {
+            Ok(EncodingMode::Numeric) => {
                 let encoder = NumericDataEncoder {
                     version: self.version,
                     error_correction: self.error_correction,
                 };
                 encoder.encode(text)
             }
-            Some(EncodingMode::Alphanumeric) => {
+            Ok(EncodingMode::Alphanumeric) => {
                 let encoder = AlphanumericDataEncoder {
                     version: self.version,
                     error_correction: self.error_correction,
@@ -304,7 +304,7 @@ mod tests {
         let data = "01234567";
 
         let best_encoding = EncodingMode::select_best_encoding(data);
-        assert_eq!(best_encoding, Some(EncodingMode::Numeric));
+        assert_eq!(best_encoding, Ok(EncodingMode::Numeric));
 
         let encoder = NumericDataEncoder {
             version: Version { version: 1 },
@@ -331,7 +331,7 @@ mod tests {
         };
 
         let best_encoding = EncodingMode::select_best_encoding(data);
-        assert_eq!(best_encoding, Some(EncodingMode::Alphanumeric));
+        assert_eq!(best_encoding, Ok(EncodingMode::Alphanumeric));
 
         let buffer = encoder.encode(data);
         assert_eq!(
