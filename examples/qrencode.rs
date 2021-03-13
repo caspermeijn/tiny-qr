@@ -25,5 +25,5 @@ fn main() {
 
     let qr_code = QrCodeBuilder::new().with_text(data.as_str()).build();
 
-    println!("{}", qr_code.matrix);
+    println!("{}", qr_code);
 }

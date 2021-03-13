@@ -28,6 +28,12 @@ pub enum Color {
     Black,
 }
 
+impl Default for Color {
+    fn default() -> Self {
+        Color::White
+    }
+}
+
 impl Color {
     pub(crate) fn inverse(self) -> Self {
         match self {
