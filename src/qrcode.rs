@@ -74,7 +74,12 @@ where
         };
         assert!(max_version.version <= MAX_VERSION as u8);
 
-        let encoded_data = encode_text(max_version, self.min_error_correction_level, self.text.unwrap()).unwrap();
+        let encoded_data = encode_text(
+            max_version,
+            self.min_error_correction_level,
+            self.text.unwrap(),
+        )
+        .unwrap();
 
         let error_corrected_data = add_error_correction(encoded_data);
 
@@ -210,9 +215,7 @@ ________██____█__██__
 
     #[test]
     fn numeric_auto_select_1_h() {
-        let qr_code = QrCodeBuilder::new()
-            .with_text("01234567")
-            .build();
+        let qr_code = QrCodeBuilder::new().with_text("01234567").build();
 
         assert_eq!(
             format!("{:?}", qr_code),

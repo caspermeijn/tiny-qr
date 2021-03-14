@@ -39,7 +39,7 @@ impl ErrorCorrectionLevel {
             ErrorCorrectionLevel::Low => Some(ErrorCorrectionLevel::Medium),
             ErrorCorrectionLevel::Medium => Some(ErrorCorrectionLevel::Quartile),
             ErrorCorrectionLevel::Quartile => Some(ErrorCorrectionLevel::High),
-            ErrorCorrectionLevel::High => None
+            ErrorCorrectionLevel::High => None,
         }
     }
 }
