@@ -52,16 +52,10 @@ impl Version {
                 27..=40 => 13,
                 _ => panic!(),
             },
-            EncodingMode::Byte => match self.version {
+            EncodingMode::Iso8859_1 => match self.version {
                 0..=9 => 8,
                 10..=26 => 16,
                 27..=40 => 16,
-                _ => panic!(),
-            },
-            EncodingMode::Kanji => match self.version {
-                0..=9 => 8,
-                10..=26 => 10,
-                27..=40 => 12,
                 _ => panic!(),
             },
         }
