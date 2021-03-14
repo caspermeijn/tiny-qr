@@ -43,7 +43,7 @@ fn calculate_encoded_data_bit_length(
         EncodingMode::Alphanumeric => {
             mode_bits + char_count_len + 11 * (data_len / 2) + 6 * (data_len % 2)
         }
-        _ => panic!(),
+        EncodingMode::Iso8859_1 => mode_bits + char_count_len + 8 * data_len,
     }
 }
 
@@ -93,8 +93,12 @@ pub fn encode_text(
             };
             encoder.encode(text)
         }
-        _ => {
-            panic!("Sorry, this input is not yet supported");
+        EncodingMode::Iso8859_1 => {
+            let encoder = Iso8859_1DataEncoder {
+                version: selected_version,
+                error_correction: selected_error_correction,
+            };
+            encoder.encode(text)
         }
     };
     Ok(EncodedData {
@@ -309,12 +313,83 @@ impl AlphanumericDataEncoder {
     }
 }
 
+pub struct Iso8859_1DataEncoder {
+    // TODO: Combine Version and ErrorCorrectionLevel
+    pub(crate) version: Version,
+    pub(crate) error_correction: ErrorCorrectionLevel,
+}
+
+impl Iso8859_1DataEncoder {
+    //TODO: Spec contains a formula for calculating the length of the output before encoding it.
+
+    fn convert_iso8859_1(c: char) -> u32 {
+        assert!(c as u32 <= 0xFF);
+        c as u32
+    }
+
+    fn encode_mode_indicator(&self, buffer: &mut Buffer) {
+        buffer.append_bits(&[false, true, false, false])
+    }
+
+    fn encode_character_count_indicator(&self, count: u32, buffer: &mut Buffer) {
+        let bit_len = self
+            .version
+            .character_count_indicator_bit_length(EncodingMode::Iso8859_1);
+        buffer.append_number(count, bit_len);
+    }
+
+    fn encode_data(&self, data: &str, buffer: &mut Buffer) {
+        let mut chars = data.chars();
+        for char1 in chars {
+            let char1 = Self::convert_iso8859_1(char1);
+            buffer.append_number(char1, 8);
+        }
+    }
+
+    fn encode_terminator(&self, buffer: &mut Buffer) {
+        let max_data_bit_len = self.version.data_codeword_bit_len(self.error_correction);
+
+        let buffer_bit_len = buffer.bit_len();
+        if max_data_bit_len - buffer_bit_len < 4 {
+            buffer.append_number(0, max_data_bit_len - buffer_bit_len)
+        } else {
+            let alignment = 8 - ((buffer_bit_len + 4) % 8);
+            buffer.append_number(0, 4 + alignment)
+        }
+    }
+
+    fn encode_padding(&self, buffer: &mut Buffer) {
+        let max_data_bit_len = self.version.data_codeword_bit_len(self.error_correction);
+        loop {
+            let bit_len_diff = max_data_bit_len - buffer.bit_len();
+            if bit_len_diff == 0 {
+                break;
+            } else if bit_len_diff >= 16 {
+                buffer.append_number(0b1110_1100_0001_0001, 16);
+            } else if bit_len_diff == 8 {
+                buffer.append_number(0b1110_1100, 8);
+            } else {
+                unreachable!()
+            }
+        }
+    }
+
+    pub fn encode(&self, data: &str) -> Buffer {
+        let mut buffer = Buffer::new();
+        self.encode_mode_indicator(&mut buffer);
+        self.encode_character_count_indicator(data.len() as u32, &mut buffer);
+        self.encode_data(data, &mut buffer);
+        self.encode_terminator(&mut buffer);
+        self.encode_padding(&mut buffer);
+        buffer
+    }
+}
+
 #[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum EncodingMode {
     Numeric,
     Alphanumeric,
-    Byte,
-    Kanji,
+    Iso8859_1,
 }
 
 fn is_char_numeric(c: char) -> bool {
@@ -325,12 +400,18 @@ fn is_char_alphanumeric(c: char) -> bool {
     matches!(c, '0'..='9' | 'A'..='Z' | ' ' | '$' | '%' | '*' | '+' | '-' | '.' | '/' | ':')
 }
 
+fn is_char_iso_8859_1(c: char) -> bool {
+    c as u32 <= 0xff
+}
+
 impl EncodingMode {
     pub fn select_best_encoding(data: &str) -> Result<EncodingMode, ()> {
         if data.chars().all(is_char_numeric) {
             Ok(EncodingMode::Numeric)
         } else if data.chars().all(is_char_alphanumeric) {
             Ok(EncodingMode::Alphanumeric)
+        } else if data.chars().all(is_char_iso_8859_1) {
+            Ok(EncodingMode::Iso8859_1)
         } else {
             Err(())
         }
@@ -345,7 +426,9 @@ pub struct EncodedData {
 
 #[cfg(test)]
 mod tests {
-    use crate::encoding::{AlphanumericDataEncoder, EncodingMode, NumericDataEncoder};
+    use crate::encoding::{
+        AlphanumericDataEncoder, EncodingMode, Iso8859_1DataEncoder, NumericDataEncoder,
+    };
     use crate::error_correction::ErrorCorrectionLevel;
     use crate::qr_version::Version;
 
@@ -389,6 +472,27 @@ mod tests {
             [
                 0b00100000, 0b01011011, 0b00001011, 0b01111000, 0b11010001, 0b01110010, 0b11011100,
                 0b01001101, 0b01000011, 0b01000000, 0b11101100, 0b00010001, 0b11101100
+            ]
+        )
+    }
+
+    #[test]
+    fn iso8859_1() {
+        let data = "[H@llo wórld]";
+        let encoder = Iso8859_1DataEncoder {
+            version: Version { version: 2 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+        };
+
+        let best_encoding = EncodingMode::select_best_encoding(data);
+        assert_eq!(best_encoding, Ok(EncodingMode::Iso8859_1));
+
+        let buffer = encoder.encode(data);
+        assert_eq!(
+            buffer.data(),
+            [
+                64, 229, 180, 132, 6, 198, 198, 242, 7, 127, 55, 38, 198, 69, 208, 0, 236, 17, 236,
+                17, 236, 17
             ]
         )
     }
