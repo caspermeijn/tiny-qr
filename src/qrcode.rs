@@ -16,7 +16,7 @@
  */
 
 use crate::array_2d::Array2D;
-use crate::encoding::StringDataEncoder;
+use crate::encoding::encode_text;
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
 use crate::mask::ScoreMasked;
 use crate::matrix::{Color, Matrix};
@@ -26,8 +26,8 @@ use core::fmt::{Debug, Display, Formatter, Write};
 const MAX_VERSION: usize = 4;
 
 pub struct QrCodeBuilder<'a> {
-    version: Option<u8>,
-    error_correction_level: ErrorCorrectionLevel,
+    max_version: Option<u8>,
+    min_error_correction_level: ErrorCorrectionLevel,
     mask_reference: Option<u8>,
     text: Option<&'a str>,
 }
@@ -38,23 +38,23 @@ where
 {
     pub fn new() -> Self {
         Self {
-            version: None,
-            error_correction_level: ErrorCorrectionLevel::Medium,
+            max_version: None,
+            min_error_correction_level: ErrorCorrectionLevel::Medium,
             mask_reference: None,
             text: None,
         }
     }
 
-    pub fn with_version(mut self, version: u8) -> Self {
-        self.version = Some(version);
+    pub fn with_max_version(mut self, max_version: u8) -> Self {
+        self.max_version = Some(max_version);
         self
     }
 
-    pub fn with_error_correction_level(
+    pub fn with_min_error_correction_level(
         mut self,
-        error_correction_level: ErrorCorrectionLevel,
+        min_error_correction_level: ErrorCorrectionLevel,
     ) -> Self {
-        self.error_correction_level = error_correction_level;
+        self.min_error_correction_level = min_error_correction_level;
         self
     }
 
@@ -69,18 +69,12 @@ where
     }
 
     pub fn build(self) -> QrCode<MAX_VERSION> {
-        let selected_version_number = self.version.unwrap_or(MAX_VERSION as u8);
-        assert!(selected_version_number <= MAX_VERSION as u8);
-        let selected_version = Version {
-            version: selected_version_number,
+        let max_version = Version {
+            version: self.max_version.unwrap_or(MAX_VERSION as u8),
         };
-        let data = self.text.unwrap();
+        assert!(max_version.version <= MAX_VERSION as u8);
 
-        let encoder = StringDataEncoder {
-            version: selected_version,
-            error_correction: self.error_correction_level,
-        };
-        let encoded_data = encoder.encode(data);
+        let encoded_data = encode_text(max_version, self.min_error_correction_level, self.text.unwrap()).unwrap();
 
         let error_corrected_data = add_error_correction(encoded_data);
 
@@ -178,37 +172,72 @@ mod tests {
     use alloc::format;
 
     #[test]
-    fn numeric_version_1() {
+    fn numeric_version_1_auto_select_high() {
         let qr_code = QrCodeBuilder::new()
             .with_text("01234567")
-            .with_version(1)
+            .with_max_version(1)
+            .with_min_error_correction_level(ErrorCorrectionLevel::Medium)
             .with_mask_reference(0b010)
             .build();
 
         assert_eq!(
             format!("{:?}", qr_code),
             "\
-███████__█_██_███████
-█_____█__████_█_____█
-█_███_█_█_____█_███_█
-█_███_█_██____█_███_█
-█_███_█_█_███_█_███_█
-█_____█_█___█_█_____█
+███████_████__███████
+█_____█_█████_█_____█
+█_███_█_█_█___█_███_█
+█_███_█_______█_███_█
+█_███_█__███__█_███_█
+█_____█_██__█_█_____█
 ███████_█_█_█_███████
-________█__██________
-█_█████__█__█_█████__
-___█_█_██_█_█__█_██__
-__█___██_█_█_█__█████
-____█____█_____████__
-___██████__█_█__█____
-________█_█████__██__
-███████__██_█_██_____
-█_____█_█_█████___█_█
-█_███_█_█___█__█_██__
-█_███_█_██__█__█_____
-█_███_█_█_██_█__█_█__
-█_____█________██_██_
-███████_████_█__█_█__
+________█_██_________
+__███_█_█__█_███__███
+_█_█___█__█_█__█_██__
+__█__███_████___█████
+_█___█__██_████████__
+_█__███_███___█_█____
+________██____█__██__
+███████__█__██_█_____
+█_____█__██_███___█_█
+█_███_█_████_█_█_██__
+█_███_█_█_█_█__█_____
+█_███_█_█_█_____█_█__
+█_____█_____█__██_██_
+███████__█_█__█_█_█__
+"
+        );
+    }
+
+    #[test]
+    fn numeric_auto_select_1_h() {
+        let qr_code = QrCodeBuilder::new()
+            .with_text("01234567")
+            .build();
+
+        assert_eq!(
+            format!("{:?}", qr_code),
+            "\
+███████__█____███████
+█_____█___███_█_____█
+█_███_█_█_____█_███_█
+█_███_█_███___█_███_█
+█_███_█__██___█_███_█
+█_____█___███_█_____█
+███████_█_█_█_███████
+_________███_________
+___██_██__██_____██__
+_██_█__███__█_█_███_█
+______█████_█_█_█_██_
+_█_██___█_█_███___█__
+__█___██_█_█_█___█_██
+________█____█_█_████
+███████_███_█__██__█_
+█_____█_____██_██_█__
+█_███_█_███__███__█_█
+█_███_█_██_██___██___
+█_███_█____█_██__████
+█_____█__█__███_█_█_█
+███████__███_██___██_
 "
         );
     }
@@ -216,8 +245,8 @@ ________█_█████__██__
     #[test]
     fn alphanumeric_version_1() {
         let qr_code = QrCodeBuilder::new()
-            .with_version(1)
-            .with_error_correction_level(ErrorCorrectionLevel::Quartile)
+            .with_max_version(1)
+            .with_min_error_correction_level(ErrorCorrectionLevel::Quartile)
             .with_mask_reference(0b110)
             .with_text("HELLO WORLD")
             .build();
@@ -253,8 +282,8 @@ ________█___█__█_█___
     #[test]
     fn alphanumeric_version_2() {
         let qr_code = QrCodeBuilder::new()
-            .with_version(2)
-            .with_error_correction_level(ErrorCorrectionLevel::Quartile)
+            .with_max_version(2)
+            .with_min_error_correction_level(ErrorCorrectionLevel::Quartile)
             .with_mask_reference(0b110)
             .with_text("HTTPS://CASPERMEIJN.NL")
             .build();
@@ -294,8 +323,8 @@ ________█___█___█___██___
     #[test]
     fn alphanumeric_version_4() {
         let qr_code = QrCodeBuilder::new()
-            .with_version(4)
-            .with_error_correction_level(ErrorCorrectionLevel::High)
+            .with_max_version(4)
+            .with_min_error_correction_level(ErrorCorrectionLevel::High)
             .with_mask_reference(0b110)
             .with_text("HTTPS://GITHUB.COM/CASPERMEIJN/TINY-QR")
             .build();

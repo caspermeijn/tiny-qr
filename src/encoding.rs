@@ -19,6 +19,81 @@ use crate::buffer::Buffer;
 use crate::error_correction::ErrorCorrectionLevel;
 use crate::qr_version::Version;
 
+fn calculate_encoded_data_bit_length(data_len: usize, version: Option<Version>, mode: EncodingMode) -> usize {
+    let version = version.unwrap_or(Version { version: 40 });
+    let mode_bits = 4;
+    let char_count_len = version.character_count_indicator_bit_length(mode);
+
+    match mode {
+        EncodingMode::Numeric => {
+            mode_bits + char_count_len + 10 * (data_len / 3) + match data_len % 3 {
+                0 => 0,
+                1 => 4,
+                2 => 7,
+                _ => panic!()
+            }
+        }
+        EncodingMode::Alphanumeric => {
+            mode_bits + char_count_len + 11 * (data_len / 2) + 6 * (data_len % 2)
+        }
+        _ => panic!()
+    }
+
+}
+
+pub fn encode_text(max_version: Version, min_error_correction: ErrorCorrectionLevel, text: &str) -> Result<EncodedData, ()> {
+    let encoding = EncodingMode::select_best_encoding(text)?;
+
+    let bit_len = calculate_encoded_data_bit_length(text.len(), Some(max_version), encoding);
+
+    if max_version.data_codeword_bit_len(min_error_correction) < bit_len {
+        return Err(())
+    }
+
+    let mut selected_error_correction = min_error_correction;
+    while let Some(increased_error_correction) = selected_error_correction.increment() {
+        if max_version.data_codeword_bit_len(increased_error_correction) >= bit_len {
+            selected_error_correction = increased_error_correction;
+        } else {
+            break
+        }
+    }
+
+    let mut selected_version = max_version;
+    while let Some(decreased_version) = selected_version.decrement() {
+    if decreased_version.data_codeword_bit_len(selected_error_correction) >= bit_len {
+        selected_version = decreased_version;
+    }else {
+        break
+    }
+    }
+
+    let buffer = match encoding {
+        EncodingMode::Numeric => {
+            let encoder = NumericDataEncoder {
+                version: selected_version,
+                error_correction: selected_error_correction,
+            };
+            encoder.encode(text)
+        }
+        EncodingMode::Alphanumeric => {
+            let encoder = AlphanumericDataEncoder {
+                version: selected_version,
+                error_correction: selected_error_correction,
+            };
+            encoder.encode(text)
+        }
+        _ => {
+            panic!("Sorry, this input is not yet supported");
+        }
+    };
+    Ok(EncodedData {
+        version: selected_version,
+        error_correction: selected_error_correction,
+        buffer,
+    })
+}
+
 pub struct NumericDataEncoder {
     // TODO: Combine Version and ErrorCorrectionLevel
     pub(crate) version: Version,

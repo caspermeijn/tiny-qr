@@ -24,6 +24,16 @@ pub struct Version {
 }
 
 impl Version {
+    pub fn decrement(self) -> Option<Self> {
+        if self.version > 1 {
+            Some(Self {
+                version: self.version - 1,
+            })
+        } else {
+            None
+        }
+    }
+
     pub const fn width(&self) -> usize {
         self.version as usize * 4 + 17
     }

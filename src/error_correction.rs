@@ -33,6 +33,17 @@ pub enum ErrorCorrectionLevel {
     High,
 }
 
+impl ErrorCorrectionLevel {
+    pub(crate) fn increment(self) -> Option<Self> {
+        match self {
+            ErrorCorrectionLevel::Low => Some(ErrorCorrectionLevel::Medium),
+            ErrorCorrectionLevel::Medium => Some(ErrorCorrectionLevel::Quartile),
+            ErrorCorrectionLevel::Quartile => Some(ErrorCorrectionLevel::High),
+            ErrorCorrectionLevel::High => None
+        }
+    }
+}
+
 pub struct ErrorCorrectedData {
     pub(crate) version: Version,
     pub(crate) error_correction: ErrorCorrectionLevel,
