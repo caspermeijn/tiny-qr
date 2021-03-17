@@ -19,6 +19,38 @@ use crate::buffer::Buffer;
 use crate::error_correction::ErrorCorrectionLevel;
 use crate::qr_version::Version;
 
+#[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub enum VersionRestriction {
+    MaxVersion(Version),
+    SpecificVersion(Version),
+}
+
+impl VersionRestriction {
+    fn to_version(self) -> Version {
+        match self {
+            VersionRestriction::MaxVersion(version) => version,
+            VersionRestriction::SpecificVersion(version) => version,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub enum ErrorCorrectionRestriction {
+    MinErrorCorrection(ErrorCorrectionLevel),
+    SpecificErrorCorrection(ErrorCorrectionLevel),
+}
+
+impl ErrorCorrectionRestriction {
+    fn to_error_correction(self) -> ErrorCorrectionLevel {
+        match self {
+            ErrorCorrectionRestriction::MinErrorCorrection(error_correction) => error_correction,
+            ErrorCorrectionRestriction::SpecificErrorCorrection(error_correction) => {
+                error_correction
+            }
+        }
+    }
+}
+
 fn calculate_encoded_data_bit_length(
     data_len: usize,
     version: Version,
@@ -49,36 +81,54 @@ fn calculate_encoded_data_bit_length(
 }
 
 pub fn encode_text(
-    max_version: Version,
-    min_error_correction: ErrorCorrectionLevel,
+    version_restriction: VersionRestriction,
+    error_correction_restriction: ErrorCorrectionRestriction,
     text: &str,
 ) -> Result<EncodedData, ()> {
+    // Find the character set to encode in
     let character_set = detect_character_set(text);
 
+    // Check whether the data could fit with the provided restrictions
+    let max_version = version_restriction.to_version();
+    let min_error_correction = error_correction_restriction.to_error_correction();
     let bit_len = calculate_encoded_data_bit_length(text.len(), max_version, character_set);
-
     if max_version.data_codeword_bit_len(min_error_correction) < bit_len {
         return Err(());
     }
 
-    let mut selected_error_correction = min_error_correction;
-    while let Some(increased_error_correction) = selected_error_correction.increment() {
-        if max_version.data_codeword_bit_len(increased_error_correction) >= bit_len {
-            selected_error_correction = increased_error_correction;
-        } else {
-            break;
+    // Try to increase the error correction while the data still fits and it is allowed by the restriction
+    let selected_error_correction = match error_correction_restriction {
+        ErrorCorrectionRestriction::MinErrorCorrection(min_error_correction) => {
+            let mut selected_error_correction = min_error_correction;
+            while let Some(increased_error_correction) = selected_error_correction.increment() {
+                if max_version.data_codeword_bit_len(increased_error_correction) >= bit_len {
+                    selected_error_correction = increased_error_correction;
+                } else {
+                    break;
+                }
+            }
+            selected_error_correction
         }
-    }
+        ErrorCorrectionRestriction::SpecificErrorCorrection(error_correction) => error_correction,
+    };
 
-    let mut selected_version = max_version;
-    while let Some(decreased_version) = selected_version.decrement() {
-        if decreased_version.data_codeword_bit_len(selected_error_correction) >= bit_len {
-            selected_version = decreased_version;
-        } else {
-            break;
+    // Try to decrease the version while the data still fits and it is allowed by the restriction
+    let selected_version = match version_restriction {
+        VersionRestriction::MaxVersion(max_version) => {
+            let mut selected_version = max_version;
+            while let Some(decreased_version) = selected_version.decrement() {
+                if decreased_version.data_codeword_bit_len(selected_error_correction) >= bit_len {
+                    selected_version = decreased_version;
+                } else {
+                    break;
+                }
+            }
+            selected_version
         }
-    }
+        VersionRestriction::SpecificVersion(version) => version,
+    };
 
+    // Encode the data
     let buffer = match character_set {
         CharacterSet::Numeric => {
             let encoder = NumericDataEncoder {
@@ -520,8 +570,8 @@ pub struct EncodedData {
 #[cfg(test)]
 mod tests {
     use crate::encoding::{
-        detect_character_set, AlphanumericDataEncoder, CharacterSet,
-        Iso8859_1DataEncoder, NumericDataEncoder, UnicodeDataEncoder,
+        detect_character_set, AlphanumericDataEncoder, CharacterSet, Iso8859_1DataEncoder,
+        NumericDataEncoder, UnicodeDataEncoder,
     };
     use crate::error_correction::ErrorCorrectionLevel;
     use crate::qr_version::Version;

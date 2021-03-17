@@ -16,7 +16,7 @@
  */
 
 use crate::array_2d::Array2D;
-use crate::encoding::encode_text;
+use crate::encoding::{encode_text, ErrorCorrectionRestriction, VersionRestriction};
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
 use crate::mask::ScoreMasked;
 use crate::matrix::{Color, Matrix};
@@ -26,8 +26,8 @@ use core::fmt::{Debug, Display, Formatter, Write};
 const MAX_VERSION: usize = 4;
 
 pub struct QrCodeBuilder<'a> {
-    max_version: Option<u8>,
-    min_error_correction_level: ErrorCorrectionLevel,
+    version_restriction: VersionRestriction,
+    error_correction_restriction: ErrorCorrectionRestriction,
     mask_reference: Option<u8>,
     text: Option<&'a str>,
 }
@@ -38,15 +38,28 @@ where
 {
     pub fn new() -> Self {
         Self {
-            max_version: None,
-            min_error_correction_level: ErrorCorrectionLevel::Medium,
+            version_restriction: VersionRestriction::MaxVersion(Version {
+                version: MAX_VERSION as u8,
+            }),
+            error_correction_restriction: ErrorCorrectionRestriction::MinErrorCorrection(
+                ErrorCorrectionLevel::Medium,
+            ),
             mask_reference: None,
             text: None,
         }
     }
 
     pub fn with_max_version(mut self, max_version: u8) -> Self {
-        self.max_version = Some(max_version);
+        assert!(max_version <= MAX_VERSION as u8);
+        self.version_restriction = VersionRestriction::MaxVersion(Version {
+            version: max_version,
+        });
+        self
+    }
+
+    pub fn with_specific_version(mut self, version: u8) -> Self {
+        assert!(version <= MAX_VERSION as u8);
+        self.version_restriction = VersionRestriction::SpecificVersion(Version { version });
         self
     }
 
@@ -54,7 +67,17 @@ where
         mut self,
         min_error_correction_level: ErrorCorrectionLevel,
     ) -> Self {
-        self.min_error_correction_level = min_error_correction_level;
+        self.error_correction_restriction =
+            ErrorCorrectionRestriction::MinErrorCorrection(min_error_correction_level);
+        self
+    }
+
+    pub fn with_specific_error_correction_level(
+        mut self,
+        error_correction_level: ErrorCorrectionLevel,
+    ) -> Self {
+        self.error_correction_restriction =
+            ErrorCorrectionRestriction::SpecificErrorCorrection(error_correction_level);
         self
     }
 
@@ -69,14 +92,9 @@ where
     }
 
     pub fn build(self) -> QrCode<MAX_VERSION> {
-        let max_version = Version {
-            version: self.max_version.unwrap_or(MAX_VERSION as u8),
-        };
-        assert!(max_version.version <= MAX_VERSION as u8);
-
         let encoded_data = encode_text(
-            max_version,
-            self.min_error_correction_level,
+            self.version_restriction,
+            self.error_correction_restriction,
             self.text.unwrap(),
         )
         .unwrap();
@@ -175,6 +193,43 @@ mod tests {
     use crate::error_correction::ErrorCorrectionLevel;
     use crate::qrcode::QrCodeBuilder;
     use alloc::format;
+
+    #[test]
+    fn numeric_specific_version_1() {
+        let qr_code = QrCodeBuilder::new()
+            .with_text("01234567")
+            .with_specific_version(1)
+            .with_specific_error_correction_level(ErrorCorrectionLevel::Medium)
+            .with_mask_reference(0b010)
+            .build();
+
+        assert_eq!(
+            format!("{:?}", qr_code),
+            "\
+███████__█_██_███████
+█_____█__████_█_____█
+█_███_█_█_____█_███_█
+█_███_█_██____█_███_█
+█_███_█_█_███_█_███_█
+█_____█_█___█_█_____█
+███████_█_█_█_███████
+________█__██________
+█_█████__█__█_█████__
+___█_█_██_█_█__█_██__
+__█___██_█_█_█__█████
+____█____█_____████__
+___██████__█_█__█____
+________█_█████__██__
+███████__██_█_██_____
+█_____█_█_█████___█_█
+█_███_█_█___█__█_██__
+█_███_█_██__█__█_____
+█_███_█_█_██_█__█_█__
+█_____█________██_██_
+███████_████_█__█_█__
+"
+        );
+    }
 
     #[test]
     fn numeric_version_1_auto_select_high() {
