@@ -21,15 +21,15 @@ use crate::qr_version::Version;
 
 fn calculate_encoded_data_bit_length(
     data_len: usize,
-    version: Option<Version>,
-    mode: EncodingMode,
+    version: Version,
+    character_set: CharacterSet,
 ) -> usize {
-    let version = version.unwrap_or(Version { version: 40 });
     let mode_bits = 4;
-    let char_count_len = version.character_count_indicator_bit_length(mode);
+    let char_count_len =
+        version.character_count_indicator_bit_length(character_set.to_encoding_mode());
 
-    match mode {
-        EncodingMode::Numeric => {
+    match character_set {
+        CharacterSet::Numeric => {
             mode_bits
                 + char_count_len
                 + 10 * (data_len / 3)
@@ -40,10 +40,11 @@ fn calculate_encoded_data_bit_length(
                     _ => panic!(),
                 }
         }
-        EncodingMode::Alphanumeric => {
+        CharacterSet::Alphanumeric => {
             mode_bits + char_count_len + 11 * (data_len / 2) + 6 * (data_len % 2)
         }
-        EncodingMode::Iso8859_1 => mode_bits + char_count_len + 8 * data_len,
+        CharacterSet::Iso8859_1 => mode_bits + char_count_len + 8 * data_len,
+        CharacterSet::Unicode => 4 + 8 + mode_bits + char_count_len + 8 * data_len,
     }
 }
 
@@ -52,9 +53,9 @@ pub fn encode_text(
     min_error_correction: ErrorCorrectionLevel,
     text: &str,
 ) -> Result<EncodedData, ()> {
-    let encoding = EncodingMode::select_best_encoding(text)?;
+    let character_set = detect_character_set(text);
 
-    let bit_len = calculate_encoded_data_bit_length(text.len(), Some(max_version), encoding);
+    let bit_len = calculate_encoded_data_bit_length(text.len(), max_version, character_set);
 
     if max_version.data_codeword_bit_len(min_error_correction) < bit_len {
         return Err(());
@@ -78,23 +79,30 @@ pub fn encode_text(
         }
     }
 
-    let buffer = match encoding {
-        EncodingMode::Numeric => {
+    let buffer = match character_set {
+        CharacterSet::Numeric => {
             let encoder = NumericDataEncoder {
                 version: selected_version,
                 error_correction: selected_error_correction,
             };
             encoder.encode(text)
         }
-        EncodingMode::Alphanumeric => {
+        CharacterSet::Alphanumeric => {
             let encoder = AlphanumericDataEncoder {
                 version: selected_version,
                 error_correction: selected_error_correction,
             };
             encoder.encode(text)
         }
-        EncodingMode::Iso8859_1 => {
+        CharacterSet::Iso8859_1 => {
             let encoder = Iso8859_1DataEncoder {
+                version: selected_version,
+                error_correction: selected_error_correction,
+            };
+            encoder.encode(text)
+        }
+        CharacterSet::Unicode => {
+            let encoder = UnicodeDataEncoder {
                 version: selected_version,
                 error_correction: selected_error_correction,
             };
@@ -334,15 +342,83 @@ impl Iso8859_1DataEncoder {
     fn encode_character_count_indicator(&self, count: u32, buffer: &mut Buffer) {
         let bit_len = self
             .version
-            .character_count_indicator_bit_length(EncodingMode::Iso8859_1);
+            .character_count_indicator_bit_length(EncodingMode::Byte);
         buffer.append_number(count, bit_len);
     }
 
     fn encode_data(&self, data: &str, buffer: &mut Buffer) {
-        let mut chars = data.chars();
-        for char1 in chars {
+        for char1 in data.chars() {
             let char1 = Self::convert_iso8859_1(char1);
             buffer.append_number(char1, 8);
+        }
+    }
+
+    fn encode_terminator(&self, buffer: &mut Buffer) {
+        let max_data_bit_len = self.version.data_codeword_bit_len(self.error_correction);
+
+        let buffer_bit_len = buffer.bit_len();
+        if max_data_bit_len - buffer_bit_len < 4 {
+            buffer.append_number(0, max_data_bit_len - buffer_bit_len)
+        } else {
+            let alignment = 8 - ((buffer_bit_len + 4) % 8);
+            buffer.append_number(0, 4 + alignment)
+        }
+    }
+
+    fn encode_padding(&self, buffer: &mut Buffer) {
+        let max_data_bit_len = self.version.data_codeword_bit_len(self.error_correction);
+        loop {
+            let bit_len_diff = max_data_bit_len - buffer.bit_len();
+            if bit_len_diff == 0 {
+                break;
+            } else if bit_len_diff >= 16 {
+                buffer.append_number(0b1110_1100_0001_0001, 16);
+            } else if bit_len_diff == 8 {
+                buffer.append_number(0b1110_1100, 8);
+            } else {
+                unreachable!()
+            }
+        }
+    }
+
+    pub fn encode(&self, data: &str) -> Buffer {
+        let mut buffer = Buffer::new();
+        self.encode_mode_indicator(&mut buffer);
+        self.encode_character_count_indicator(data.len() as u32, &mut buffer);
+        self.encode_data(data, &mut buffer);
+        self.encode_terminator(&mut buffer);
+        self.encode_padding(&mut buffer);
+        buffer
+    }
+}
+
+pub struct UnicodeDataEncoder {
+    // TODO: Combine Version and ErrorCorrectionLevel
+    pub(crate) version: Version,
+    pub(crate) error_correction: ErrorCorrectionLevel,
+}
+
+impl UnicodeDataEncoder {
+    //TODO: Spec contains a formula for calculating the length of the output before encoding it.
+
+    fn encode_mode_indicator(&self, buffer: &mut Buffer) {
+        // ECI indicator for UTF-8
+        buffer.append_bits(&[false, true, true, true]);
+        buffer.append_byte(26);
+        // Byte mode indicator
+        buffer.append_bits(&[false, true, false, false])
+    }
+
+    fn encode_character_count_indicator(&self, count: u32, buffer: &mut Buffer) {
+        let bit_len = self
+            .version
+            .character_count_indicator_bit_length(EncodingMode::Byte);
+        buffer.append_number(count, bit_len);
+    }
+
+    fn encode_data(&self, data: &str, buffer: &mut Buffer) {
+        for byte1 in data.bytes() {
+            buffer.append_byte(byte1);
         }
     }
 
@@ -389,7 +465,26 @@ impl Iso8859_1DataEncoder {
 pub enum EncodingMode {
     Numeric,
     Alphanumeric,
+    Byte,
+}
+
+#[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub enum CharacterSet {
+    Numeric,
+    Alphanumeric,
     Iso8859_1,
+    Unicode,
+}
+
+impl CharacterSet {
+    fn to_encoding_mode(self) -> EncodingMode {
+        match self {
+            CharacterSet::Numeric => EncodingMode::Numeric,
+            CharacterSet::Alphanumeric => EncodingMode::Alphanumeric,
+            CharacterSet::Iso8859_1 => EncodingMode::Byte,
+            CharacterSet::Unicode => EncodingMode::Byte,
+        }
+    }
 }
 
 fn is_char_numeric(c: char) -> bool {
@@ -404,17 +499,15 @@ fn is_char_iso_8859_1(c: char) -> bool {
     c as u32 <= 0xff
 }
 
-impl EncodingMode {
-    pub fn select_best_encoding(data: &str) -> Result<EncodingMode, ()> {
-        if data.chars().all(is_char_numeric) {
-            Ok(EncodingMode::Numeric)
-        } else if data.chars().all(is_char_alphanumeric) {
-            Ok(EncodingMode::Alphanumeric)
-        } else if data.chars().all(is_char_iso_8859_1) {
-            Ok(EncodingMode::Iso8859_1)
-        } else {
-            Err(())
-        }
+fn detect_character_set(data: &str) -> CharacterSet {
+    if data.chars().all(is_char_numeric) {
+        CharacterSet::Numeric
+    } else if data.chars().all(is_char_alphanumeric) {
+        CharacterSet::Alphanumeric
+    } else if data.chars().all(is_char_iso_8859_1) {
+        CharacterSet::Iso8859_1
+    } else {
+        CharacterSet::Unicode
     }
 }
 
@@ -427,7 +520,8 @@ pub struct EncodedData {
 #[cfg(test)]
 mod tests {
     use crate::encoding::{
-        AlphanumericDataEncoder, EncodingMode, Iso8859_1DataEncoder, NumericDataEncoder,
+        detect_character_set, AlphanumericDataEncoder, CharacterSet,
+        Iso8859_1DataEncoder, NumericDataEncoder, UnicodeDataEncoder,
     };
     use crate::error_correction::ErrorCorrectionLevel;
     use crate::qr_version::Version;
@@ -436,8 +530,8 @@ mod tests {
     fn numeric() {
         let data = "01234567";
 
-        let best_encoding = EncodingMode::select_best_encoding(data);
-        assert_eq!(best_encoding, Ok(EncodingMode::Numeric));
+        let character_set = detect_character_set(data);
+        assert_eq!(character_set, CharacterSet::Numeric);
 
         let encoder = NumericDataEncoder {
             version: Version { version: 1 },
@@ -463,8 +557,8 @@ mod tests {
             error_correction: ErrorCorrectionLevel::Quartile,
         };
 
-        let best_encoding = EncodingMode::select_best_encoding(data);
-        assert_eq!(best_encoding, Ok(EncodingMode::Alphanumeric));
+        let character_set = detect_character_set(data);
+        assert_eq!(character_set, CharacterSet::Alphanumeric);
 
         let buffer = encoder.encode(data);
         assert_eq!(
@@ -484,8 +578,8 @@ mod tests {
             error_correction: ErrorCorrectionLevel::Quartile,
         };
 
-        let best_encoding = EncodingMode::select_best_encoding(data);
-        assert_eq!(best_encoding, Ok(EncodingMode::Iso8859_1));
+        let character_set = detect_character_set(data);
+        assert_eq!(character_set, CharacterSet::Iso8859_1);
 
         let buffer = encoder.encode(data);
         assert_eq!(
@@ -493,6 +587,38 @@ mod tests {
             [
                 64, 229, 180, 132, 6, 198, 198, 242, 7, 127, 55, 38, 198, 69, 208, 0, 236, 17, 236,
                 17, 236, 17
+            ]
+        )
+    }
+
+    #[test]
+    fn unicode() {
+        let data = "I 💓 you";
+
+        let character_set = detect_character_set(data);
+        assert_eq!(character_set, CharacterSet::Unicode);
+
+        let encoder = UnicodeDataEncoder {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Quartile,
+        };
+        let buffer = encoder.encode(data);
+        assert_eq!(
+            buffer.data(),
+            [
+                0b0111_0001,
+                0b1010_0100,
+                10,
+                73,
+                32,
+                240,
+                159,
+                146,
+                147,
+                32,
+                'y' as u8,
+                'o' as u8,
+                'u' as u8,
             ]
         )
     }
