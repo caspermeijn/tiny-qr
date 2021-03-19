@@ -16,6 +16,7 @@
  */
 
 use crate::array_2d::Array2D;
+use crate::draw_iterator::DrawIterator;
 use crate::encoding::{encode_text, ErrorCorrectionRestriction, VersionRestriction};
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
 use crate::mask::ScoreMasked;
@@ -117,14 +118,18 @@ pub struct QrCode<const MAX_VERSION: usize>
 where
     [u8; MAX_VERSION * 4 + 17]: Sized,
 {
-    data: Array2D<Color, { MAX_VERSION * 4 + 17 }>,
+    pub(crate) data: Array2D<Color, { MAX_VERSION * 4 + 17 }>,
 }
 
 impl<const MAX_VERSION: usize> QrCode<MAX_VERSION>
 where
     [u8; MAX_VERSION * 4 + 17]: Sized,
 {
-    pub fn from(scored: ScoreMasked<{ MAX_VERSION * 4 + 17 }>) -> Self {
+    pub fn draw_iter(&self) -> DrawIterator<MAX_VERSION> {
+        DrawIterator::new(self)
+    }
+
+    fn from(scored: ScoreMasked<{ MAX_VERSION * 4 + 17 }>) -> Self {
         let data = scored.masked.matrix.data;
         let size = data.size();
 

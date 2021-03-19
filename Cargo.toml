@@ -15,3 +15,6 @@ categories = ["embedded", "encoding", "no-std"]
 
 [dependencies.reed-solomon]
 version = "0.2.1"
+
+[dev-dependencies.bmp]
+version = "0.5.0"

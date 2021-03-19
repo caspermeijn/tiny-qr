@@ -26,6 +26,7 @@ extern crate alloc;
 mod array_2d;
 mod blocks;
 pub mod buffer;
+mod draw_iterator;
 mod encoding;
 mod error_correction;
 mod format;
@@ -34,6 +35,7 @@ mod matrix;
 mod qr_version;
 mod qrcode;
 
+pub use matrix::Color;
 pub use qrcode::QrCodeBuilder;
 
 #[cfg(test)]
