@@ -69,10 +69,6 @@ where
 }
 
 impl<T, const N: usize> Array2D<T, N> {
-    pub fn capacity() -> Coordinate {
-        Coordinate::new(N, N)
-    }
-
     pub fn size(&self) -> Coordinate {
         self.size
     }

@@ -172,13 +172,20 @@ impl<const N: usize> Masked<N> {
             Color::White,
             Color::Black,
         ];
-        let initial_pattern = |iter: &mut T| {
-            let mut pattern = [Color::White; 11];
-            for i in 0..11 {
-                let module = *iter.next().unwrap();
-                pattern[i] = module.into();
-            }
-            pattern
+        let initial_pattern = |iter: &mut T| -> [Color; 11] {
+            [
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+                (*iter.next().unwrap()).into(),
+            ]
         };
 
         let shift_pattern = |mut pattern: [Color; 11], iter: &mut T| -> Option<[Color; 11]> {
@@ -305,6 +312,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::array_2d::Array2D;
     use crate::buffer::Buffer;
     use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
     use crate::mask::Masked;
@@ -312,10 +320,24 @@ mod tests {
     use crate::qr_version::Version;
     use alloc::format;
 
+    fn new_white_matrix() -> Matrix<21> {
+        let mut matrix = Matrix {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Low,
+            data: Array2D::new(),
+        };
+        let size = matrix.data.size();
+        for x in 0..size.x {
+            for y in 0..size.y {
+                matrix.data[(x, y).into()] = Module::Filled(Color::White);
+            }
+        }
+        matrix
+    }
+
     #[test]
     fn mask_pattern0() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 0);
 
         assert_eq!(
@@ -348,8 +370,7 @@ _█_█_█_█_█_█_█_█_█_█_
 
     #[test]
     fn mask_pattern1() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 1);
 
         assert_eq!(
@@ -382,8 +403,7 @@ _____________________
 
     #[test]
     fn mask_pattern2() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 2);
 
         assert_eq!(
@@ -416,8 +436,7 @@ _____________________
 
     #[test]
     fn mask_pattern3() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 3);
 
         assert_eq!(
@@ -450,8 +469,7 @@ _█__█__█__█__█__█__█_
 
     #[test]
     fn mask_pattern4() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 4);
 
         assert_eq!(
@@ -484,8 +502,7 @@ ___███___███___███___
 
     #[test]
     fn mask_pattern5() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 5);
 
         assert_eq!(
@@ -518,8 +535,7 @@ ___███___███___███___
 
     #[test]
     fn mask_pattern6() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 6);
 
         assert_eq!(
@@ -552,8 +568,7 @@ ___███___███___███___
 
     #[test]
     fn mask_pattern7() {
-        let mut matrix = Matrix::<21>::empty();
-        matrix.fill_whole(Module::Filled(Color::White));
+        let matrix = new_white_matrix();
         let masked = Masked::from(matrix, 7);
 
         assert_eq!(
