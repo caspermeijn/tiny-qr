@@ -80,23 +80,6 @@ pub struct Matrix<const N: usize> {
 }
 
 impl<const N: usize> Matrix<N> {
-    pub(crate) fn empty() -> Self {
-        Self {
-            version: Version { version: 1 },
-            error_correction: ErrorCorrectionLevel::Low,
-            data: Array2D::new(),
-        }
-    }
-
-    pub(crate) fn fill_whole(&mut self, data: Module) {
-        let size = self.data.size();
-        for x in 0..size.x {
-            for y in 0..size.y {
-                self.data[(x, y).into()] = data;
-            }
-        }
-    }
-
     fn fill_module(&mut self, pos: Coordinate, data: Module) {
         self.data[pos] = data;
     }
@@ -491,16 +474,14 @@ impl Iterator for PositionIterator {
                 } else {
                     self.current_pos.x -= 1;
                 }
-            } else {
-                if self.current_pos.x == self.size.x - 1 {
-                    self.upwards = true;
-                    self.current_pos.y -= 2;
-                    if self.current_pos.y == 6 {
-                        self.current_pos.y -= 1;
-                    }
-                } else {
-                    self.current_pos.x += 1;
+            } else if self.current_pos.x == self.size.x - 1 {
+                self.upwards = true;
+                self.current_pos.y -= 2;
+                if self.current_pos.y == 6 {
+                    self.current_pos.y -= 1;
                 }
+            } else {
+                self.current_pos.x += 1;
             }
             Some(current_pos)
         }
@@ -555,15 +536,26 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::array_2d::Array2D;
     use crate::buffer::Buffer;
     use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
-    use crate::matrix::Matrix;
+    use crate::matrix::{Matrix, Module};
     use crate::qr_version::Version;
+    use crate::Color;
     use alloc::format;
+
+    fn new_empty_matrix<const N: usize>() -> Matrix<N> {
+        let mut matrix = Matrix {
+            version: Version { version: 1 },
+            error_correction: ErrorCorrectionLevel::Low,
+            data: Array2D::new(),
+        };
+        matrix
+    }
 
     #[test]
     fn finder_pattern_version_1() {
-        let mut matrix = Matrix::<21>::empty();
+        let mut matrix: Matrix<21> = new_empty_matrix();
         matrix.fill_finder_patterns();
 
         assert_eq!(
@@ -596,7 +588,7 @@ mod tests {
 
     #[test]
     fn reserved_version_1() {
-        let mut matrix = Matrix::<21>::empty();
+        let mut matrix: Matrix<21> = new_empty_matrix();
         matrix.fill_reserved();
 
         assert_eq!(
@@ -629,7 +621,7 @@ mod tests {
 
     #[test]
     fn timing_pattern() {
-        let mut matrix = Matrix::<21>::empty();
+        let mut matrix: Matrix<21> = new_empty_matrix();
         matrix.fill_timing_pattern();
 
         assert_eq!(
@@ -662,7 +654,7 @@ mod tests {
 
     #[test]
     fn symbol_version_2() {
-        let mut matrix = Matrix::<25>::empty();
+        let mut matrix: Matrix<25> = new_empty_matrix();
         matrix.fill_symbol();
 
         assert_eq!(
@@ -744,7 +736,7 @@ mod tests {
 
     #[test]
     fn format() {
-        let mut matrix = Matrix::<21>::empty();
+        let mut matrix: Matrix<21> = new_empty_matrix();
         matrix.fill_reserved();
         matrix.place_format(0b100000011001110);
 
@@ -778,7 +770,7 @@ mod tests {
 
     #[test]
     fn large_matrix_small_pattern() {
-        let mut matrix = Matrix::<100>::empty();
+        let mut matrix: Matrix<100> = new_empty_matrix();
         matrix.set_version(Version { version: 1 });
         matrix.fill_finder_patterns();
 

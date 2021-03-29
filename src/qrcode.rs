@@ -21,7 +21,7 @@ use crate::encoding::{encode_text, ErrorCorrectionRestriction, VersionRestrictio
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
 use crate::mask::ScoreMasked;
 use crate::matrix::{Color, Matrix};
-use crate::qr_version::{Version, version_to_size};
+use crate::qr_version::{version_to_size, Version};
 use core::fmt::{Debug, Display, Formatter, Write};
 
 const MAX_VERSION: u8 = 4;
@@ -34,8 +34,13 @@ pub struct QrCodeBuilder<'a> {
     text: Option<&'a str>,
 }
 
-impl<'a> QrCodeBuilder<'a>
-{
+impl<'a> Default for QrCodeBuilder<'a> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'a> QrCodeBuilder<'a> {
     pub fn new() -> Self {
         Self {
             version_restriction: VersionRestriction::MaxVersion(Version {
@@ -113,13 +118,11 @@ impl<'a> QrCodeBuilder<'a>
     }
 }
 
-pub struct QrCode<const N: usize>
-{
+pub struct QrCode<const N: usize> {
     pub(crate) data: Array2D<Color, N>,
 }
 
-impl<const N: usize> QrCode<N>
-{
+impl<const N: usize> QrCode<N> {
     pub fn draw_iter(&self) -> DrawIterator<N> {
         DrawIterator::new(self)
     }
@@ -141,8 +144,7 @@ impl<const N: usize> QrCode<N>
     }
 }
 
-impl<const N: usize> Debug for QrCode<N>
-{
+impl<const N: usize> Debug for QrCode<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.data.rows().try_for_each(|mut row| {
             row.try_for_each(|color| {
@@ -156,8 +158,7 @@ impl<const N: usize> Debug for QrCode<N>
     }
 }
 
-impl<const N: usize> Display for QrCode<N>
-{
+impl<const N: usize> Display for QrCode<N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let iter1 = self.data.rows().step_by(2);
         let iter2 = self.data.rows().skip(1).step_by(2);

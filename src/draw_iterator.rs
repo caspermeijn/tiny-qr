@@ -26,15 +26,13 @@ pub struct CoordinatedColor {
     pub color: Color,
 }
 
-pub struct DrawIterator<'a, const N: usize>
-{
+pub struct DrawIterator<'a, const N: usize> {
     qrcode: &'a QrCode<N>,
     x: usize,
     y: usize,
 }
 
-impl<'a, const N: usize> DrawIterator<'a, N>
-{
+impl<'a, const N: usize> DrawIterator<'a, N> {
     pub(crate) fn new(qrcode: &'a QrCode<N>) -> Self {
         DrawIterator { qrcode, x: 0, y: 0 }
     }
@@ -59,8 +57,7 @@ impl<'a, const N: usize> DrawIterator<'a, N>
     }
 }
 
-impl<const N: usize> Iterator for DrawIterator<'_, N>
-{
+impl<const N: usize> Iterator for DrawIterator<'_, N> {
     // we will be counting with usize
     type Item = CoordinatedColor;
 
