@@ -27,8 +27,6 @@ pub struct CoordinatedColor {
 }
 
 pub struct DrawIterator<'a, const N: usize>
-where
-    [u8; N * 4 + 17]: Sized,
 {
     qrcode: &'a QrCode<N>,
     x: usize,
@@ -36,8 +34,6 @@ where
 }
 
 impl<'a, const N: usize> DrawIterator<'a, N>
-where
-    [u8; N * 4 + 17]: Sized,
 {
     pub(crate) fn new(qrcode: &'a QrCode<N>) -> Self {
         DrawIterator { qrcode, x: 0, y: 0 }
@@ -64,8 +60,6 @@ where
 }
 
 impl<const N: usize> Iterator for DrawIterator<'_, N>
-where
-    [u8; N * 4 + 17]: Sized,
 {
     // we will be counting with usize
     type Item = CoordinatedColor;

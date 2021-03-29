@@ -15,10 +15,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#![feature(min_const_generics)]
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
-
 use bmp::{px, Image, Pixel};
 use std::env;
 use tiny_qr::{Color, QrCodeBuilder};

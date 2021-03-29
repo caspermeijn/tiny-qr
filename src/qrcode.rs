@@ -21,10 +21,11 @@ use crate::encoding::{encode_text, ErrorCorrectionRestriction, VersionRestrictio
 use crate::error_correction::{add_error_correction, ErrorCorrectionLevel};
 use crate::mask::ScoreMasked;
 use crate::matrix::{Color, Matrix};
-use crate::qr_version::Version;
+use crate::qr_version::{Version, version_to_size};
 use core::fmt::{Debug, Display, Formatter, Write};
 
-const MAX_VERSION: usize = 4;
+const MAX_VERSION: u8 = 4;
+const MAX_MODULE_SIZE: usize = version_to_size(MAX_VERSION);
 
 pub struct QrCodeBuilder<'a> {
     version_restriction: VersionRestriction,
@@ -34,13 +35,11 @@ pub struct QrCodeBuilder<'a> {
 }
 
 impl<'a> QrCodeBuilder<'a>
-where
-    [u8; MAX_VERSION * 4 + 17]: Sized,
 {
     pub fn new() -> Self {
         Self {
             version_restriction: VersionRestriction::MaxVersion(Version {
-                version: MAX_VERSION as u8,
+                version: MAX_VERSION,
             }),
             error_correction_restriction: ErrorCorrectionRestriction::MinErrorCorrection(
                 ErrorCorrectionLevel::Medium,
@@ -51,7 +50,7 @@ where
     }
 
     pub fn with_max_version(mut self, max_version: u8) -> Self {
-        assert!(max_version <= MAX_VERSION as u8);
+        assert!(max_version <= MAX_VERSION);
         self.version_restriction = VersionRestriction::MaxVersion(Version {
             version: max_version,
         });
@@ -59,7 +58,7 @@ where
     }
 
     pub fn with_specific_version(mut self, version: u8) -> Self {
-        assert!(version <= MAX_VERSION as u8);
+        assert!(version <= MAX_VERSION);
         self.version_restriction = VersionRestriction::SpecificVersion(Version { version });
         self
     }
@@ -92,7 +91,7 @@ where
         self
     }
 
-    pub fn build(self) -> QrCode<MAX_VERSION> {
+    pub fn build(self) -> QrCode<MAX_MODULE_SIZE> {
         let encoded_data = encode_text(
             self.version_restriction,
             self.error_correction_restriction,
@@ -114,22 +113,18 @@ where
     }
 }
 
-pub struct QrCode<const MAX_VERSION: usize>
-where
-    [u8; MAX_VERSION * 4 + 17]: Sized,
+pub struct QrCode<const N: usize>
 {
-    pub(crate) data: Array2D<Color, { MAX_VERSION * 4 + 17 }>,
+    pub(crate) data: Array2D<Color, N>,
 }
 
-impl<const MAX_VERSION: usize> QrCode<MAX_VERSION>
-where
-    [u8; MAX_VERSION * 4 + 17]: Sized,
+impl<const N: usize> QrCode<N>
 {
-    pub fn draw_iter(&self) -> DrawIterator<MAX_VERSION> {
+    pub fn draw_iter(&self) -> DrawIterator<N> {
         DrawIterator::new(self)
     }
 
-    fn from(scored: ScoreMasked<{ MAX_VERSION * 4 + 17 }>) -> Self {
+    fn from(scored: ScoreMasked<N>) -> Self {
         let data = scored.masked.matrix.data;
         let size = data.size();
 
@@ -146,9 +141,7 @@ where
     }
 }
 
-impl<const MAX_VERSION: usize> Debug for QrCode<MAX_VERSION>
-where
-    [u8; MAX_VERSION * 4 + 17]: Sized,
+impl<const N: usize> Debug for QrCode<N>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.data.rows().try_for_each(|mut row| {
@@ -163,9 +156,7 @@ where
     }
 }
 
-impl<const MAX_VERSION: usize> Display for QrCode<MAX_VERSION>
-where
-    [u8; MAX_VERSION * 4 + 17]: Sized,
+impl<const N: usize> Display for QrCode<N>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let iter1 = self.data.rows().step_by(2);

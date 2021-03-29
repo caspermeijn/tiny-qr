@@ -18,6 +18,10 @@
 use crate::encoding::EncodingMode;
 use crate::error_correction::ErrorCorrectionLevel;
 
+pub const fn version_to_size(version: u8) -> usize {
+    version as usize * 4 + 17
+}
+
 #[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub struct Version {
     pub(crate) version: u8,
@@ -35,7 +39,7 @@ impl Version {
     }
 
     pub const fn width(&self) -> usize {
-        self.version as usize * 4 + 17
+        version_to_size(self.version)
     }
 
     pub fn character_count_indicator_bit_length(&self, encoding: EncodingMode) -> usize {

@@ -16,9 +16,6 @@
  */
 
 #![no_std]
-#![feature(min_const_generics)]
-#![feature(const_generics)]
-#![feature(const_evaluatable_checked)]
 
 //TODO: Remove alloc requirement
 extern crate alloc;
