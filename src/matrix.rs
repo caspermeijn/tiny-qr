@@ -539,13 +539,12 @@ mod tests {
     use crate::array_2d::Array2D;
     use crate::buffer::Buffer;
     use crate::error_correction::{ErrorCorrectedData, ErrorCorrectionLevel};
-    use crate::matrix::{Matrix, Module};
+    use crate::matrix::Matrix;
     use crate::qr_version::Version;
-    use crate::Color;
     use alloc::format;
 
     fn new_empty_matrix<const N: usize>() -> Matrix<N> {
-        let mut matrix = Matrix {
+        let matrix = Matrix {
             version: Version { version: 1 },
             error_correction: ErrorCorrectionLevel::Low,
             data: Array2D::new(),
@@ -704,7 +703,7 @@ mod tests {
             buffer,
         };
 
-        let mut matrix = Matrix::<21>::from_data(data);
+        let matrix = Matrix::<21>::from_data(data);
 
         assert_eq!(
             format!("{:?}", matrix),

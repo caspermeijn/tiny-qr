@@ -614,7 +614,7 @@ ___███___███___███___
             buffer,
         };
 
-        let mut matrix = Matrix::<21>::from_data(data);
+        let matrix = Matrix::<21>::from_data(data);
 
         let masked = Masked::from(matrix, 0b010);
 
@@ -667,7 +667,7 @@ ___███▓██__█_█__█____
             buffer,
         };
 
-        let mut matrix = Matrix::<21>::from_data(data);
+        let matrix = Matrix::<21>::from_data(data);
         let masked = Masked::from(matrix, 0);
 
         let adjacent_horizontal = masked.score_adjacent_horizontal();
@@ -734,7 +734,7 @@ ___███▓██__█_█__█____
             buffer,
         };
 
-        let mut matrix = Matrix::<21>::from_data(data);
+        let matrix = Matrix::<21>::from_data(data);
 
         let scored = matrix.mask(0);
         assert_eq!(scored.score, 347);
@@ -775,7 +775,7 @@ ___███▓██__█_█__█____
             buffer,
         };
 
-        let mut matrix = Matrix::<21>::from_data(data);
+        let matrix = Matrix::<21>::from_data(data);
 
         let best_mask = matrix.best_mask();
         assert_eq!(best_mask.masked.mask_reference, 6);
@@ -797,7 +797,7 @@ ___███▓██__█_█__█____
             buffer,
         };
 
-        let mut matrix = Matrix::<21>::from_data(data);
+        let matrix = Matrix::<21>::from_data(data);
 
         let best_mask = matrix.best_mask();
         assert_eq!(best_mask.masked.mask_reference, 0b010);
