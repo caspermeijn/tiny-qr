@@ -15,17 +15,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+//! Implements encoding of data according to QR code specification.
+
 use crate::buffer::Buffer;
 use crate::error_correction::ErrorCorrectionLevel;
 use crate::qr_version::Version;
 
+/// Indicates what QR code version is requested by the user
 #[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum VersionRestriction {
+    /// The user want the QR code version to be less or equal to Version
     MaxVersion(Version),
+    /// The user want the QR code version to be equal to Version
     SpecificVersion(Version),
 }
 
 impl VersionRestriction {
+    /// Returns the version inside the restriction regardless of the chosen restriction
     fn to_version(self) -> Version {
         match self {
             VersionRestriction::MaxVersion(version) => version,
@@ -34,13 +40,17 @@ impl VersionRestriction {
     }
 }
 
+/// Indicates what error correction level is requested by the user
 #[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum ErrorCorrectionRestriction {
+    /// The user want the error correction level to be equal or more than ErrorCorrectionLevel
     MinErrorCorrection(ErrorCorrectionLevel),
+    /// The user want the error correction level to be equal than ErrorCorrectionLevel
     SpecificErrorCorrection(ErrorCorrectionLevel),
 }
 
 impl ErrorCorrectionRestriction {
+    /// Returns the error correction level inside the restriction regardless of the chosen restriction
     fn to_error_correction(self) -> ErrorCorrectionLevel {
         match self {
             ErrorCorrectionRestriction::MinErrorCorrection(error_correction) => error_correction,
@@ -51,6 +61,8 @@ impl ErrorCorrectionRestriction {
     }
 }
 
+/// Calculates the number of bits needed to encode data with length `data_len` of type
+///    `character_set` using QR code version `version`.
 fn calculate_encoded_data_bit_length(
     data_len: usize,
     version: Version,
@@ -80,6 +92,19 @@ fn calculate_encoded_data_bit_length(
     }
 }
 
+/// Contains the encoded data, the selected version and error correction level.
+pub struct EncodedData {
+    pub(crate) version: Version,
+    pub(crate) error_correction: ErrorCorrectionLevel,
+    pub(crate) buffer: Buffer,
+}
+
+/// Encode a given `text` while keeping `version_restriction` and `error_correction_restriction` in
+///   mind. It tries to choose the best encoding. It tries to increase the error correction level
+///   if that fits in the restrictions. Then it tries to decrease the QR code version as long as
+///   the data fits.
+///
+/// The result contains the encoded data and the selected version and error correction level.
 pub fn encode_text(
     version_restriction: VersionRestriction,
     error_correction_restriction: ErrorCorrectionRestriction,
@@ -511,22 +536,32 @@ impl UnicodeDataEncoder {
     }
 }
 
+/// The encoding modes as defined by the QR code specification
 #[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum EncodingMode {
+    /// Can encode data that only contains numbers (0-9)
     Numeric,
+    /// Can encode data that only contains numbers, uppercase latin letter and some symbols (0-9, A-Z, $%*+-./: )
     Alphanumeric,
+    /// Can encode raw bytes, default is ISO 8859-1 (Latin1)
     Byte,
 }
 
+/// The character sets available for encoding
 #[derive(Clone, Copy, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum CharacterSet {
+    /// Contains only numbers
     Numeric,
+    /// Contains only numbers, uppercase latin letter and some symbols
     Alphanumeric,
+    /// Contains characters from ISO 8859-1 (Latin1)
     Iso8859_1,
+    /// Contains characters from Unicode standard
     Unicode,
 }
 
 impl CharacterSet {
+    /// Returns the encoding mode needed for encoding the character set
     fn to_encoding_mode(self) -> EncodingMode {
         match self {
             CharacterSet::Numeric => EncodingMode::Numeric,
@@ -537,18 +572,22 @@ impl CharacterSet {
     }
 }
 
+/// Returns whether character is in CharacterSet::Numeric
 fn is_char_numeric(c: char) -> bool {
     c.is_ascii_digit()
 }
 
+/// Returns whether character is in CharacterSet::Alphanumeric
 fn is_char_alphanumeric(c: char) -> bool {
     matches!(c, '0'..='9' | 'A'..='Z' | ' ' | '$' | '%' | '*' | '+' | '-' | '.' | '/' | ':')
 }
 
+/// Returns whether character is in CharacterSet::Iso8859_1
 fn is_char_iso_8859_1(c: char) -> bool {
     c as u32 <= 0xff
 }
 
+/// Returns the best matched CharacterSet for `data`
 fn detect_character_set(data: &str) -> CharacterSet {
     if data.chars().all(is_char_numeric) {
         CharacterSet::Numeric
@@ -559,12 +598,6 @@ fn detect_character_set(data: &str) -> CharacterSet {
     } else {
         CharacterSet::Unicode
     }
-}
-
-pub struct EncodedData {
-    pub(crate) version: Version,
-    pub(crate) error_correction: ErrorCorrectionLevel,
-    pub(crate) buffer: Buffer,
 }
 
 #[cfg(test)]

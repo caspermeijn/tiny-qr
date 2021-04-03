@@ -15,25 +15,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+//! Implements error correction according to QR code specification.
+
 use crate::blocks::BlockLengthIterator;
 use crate::buffer::Buffer;
 use crate::encoding::EncodedData;
 use crate::qr_version::Version;
 
-/// Qr codes use Reed–Solomon error correction
+/// The error correction level used for recovery of missing data using Reed–Solomon algorithm
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
 pub enum ErrorCorrectionLevel {
-    /// Allows recovery of 7% of missing data
+    /// Allows recovery of approx 7% of missing data
     Low,
-    /// Allows recovery of 15% of missing data
+    /// Allows recovery of approx 15% of missing data
     Medium,
-    /// Allows recovery of 25% of missing data
+    /// Allows recovery of approx 25% of missing data
     Quartile,
-    /// Allows recovery of 30% of missing data
+    /// Allows recovery of approx 30% of missing data
     High,
 }
 
 impl ErrorCorrectionLevel {
+    /// Tries to increment the error correction level; returns None if already the highest level
     pub(crate) fn increment(self) -> Option<Self> {
         match self {
             ErrorCorrectionLevel::Low => Some(ErrorCorrectionLevel::Medium),
@@ -44,12 +47,14 @@ impl ErrorCorrectionLevel {
     }
 }
 
+/// Contains encoded data with error correction data appended, including selected version and error correction level
 pub struct ErrorCorrectedData {
     pub(crate) version: Version,
     pub(crate) error_correction: ErrorCorrectionLevel,
     pub(crate) buffer: Buffer,
 }
 
+/// Append error correction data to the encoded data
 pub fn add_error_correction(data: EncodedData) -> ErrorCorrectedData {
     let mut buffer = data.buffer;
 
