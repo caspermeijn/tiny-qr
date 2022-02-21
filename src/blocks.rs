@@ -99,7 +99,7 @@ pub struct BlockEccIterator<'a> {
 impl<'a> BlockEccIterator<'a> {
     pub fn new(data: &'a [u8], version: Version, error_correction: ErrorCorrectionLevel) -> Self {
         Self {
-            data: &data,
+            data,
             blocks: BlockLengthIterator::new(version, error_correction),
             ecc_offset: 0,
         }

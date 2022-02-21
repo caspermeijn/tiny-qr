@@ -74,11 +74,11 @@ impl<T, const N: usize> Array2D<T, N> {
     }
 
     pub fn rows(&self) -> Rows<'_, T, N> {
-        Rows { data: &self, x: 0 }
+        Rows { data: self, x: 0 }
     }
 
     pub fn columns(&self) -> Columns<'_, T, N> {
-        Columns { data: &self, y: 0 }
+        Columns { data: self, y: 0 }
     }
 
     pub fn set_size(&mut self, size: Coordinate) {
