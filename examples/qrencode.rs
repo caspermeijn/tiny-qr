@@ -16,14 +16,14 @@
  */
 
 use std::env;
-use tiny_qr::QrCodeBuilder;
+use tiny_qr::QrCode;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let data = args.join(" ");
     println!("QR code for {}", data);
 
-    let qr_code = QrCodeBuilder::new().with_text(data.as_str()).build();
+    let qr_code = QrCode::generate_from_text(data.as_str());
 
     println!("{}", qr_code);
 }

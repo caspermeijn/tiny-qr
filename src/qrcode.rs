@@ -27,21 +27,48 @@ use core::fmt::{Debug, Display, Formatter, Write};
 const MAX_VERSION: u8 = 4;
 const MAX_MODULE_SIZE: usize = version_to_size(MAX_VERSION);
 
-pub struct QrCodeBuilder<'a> {
+/// Composes an `QrCode` from settings and a text.
+///
+/// Using this generator you can influence the generation process.
+/// - You can select a minimum or specific error correction level. This can be useful if you expect
+///     a low or high error rate.
+/// - You can select a maximum or specific version. This can be useful if there are size
+///     restrictions of the display.
+/// - You can select a specific mask reference. This is primairly useful for debugging purposes.
+/// -
+///
+/// # Example
+/// ```
+/// use tiny_qr::QrCode;
+/// use tiny_qr::ErrorCorrectionLevel;
+/// let qr_code = QrCode::generator()
+///     .with_specific_error_correction_level(ErrorCorrectionLevel::High)
+///     .with_specific_version(1)
+///     .with_text("01234567")
+///     .build();
+/// assert_eq!(format!("{}", qr_code), "".to_owned() +
+///     "█▀▀▀▀▀█  ▀▄▄▄ █▀▀▀▀▀█\n" +
+///     "█ ███ █ █▄▄   █ ███ █\n" +
+///     "█ ▀▀▀ █  ▀█▄▄ █ ▀▀▀ █\n" +
+///     "▀▀▀▀▀▀▀ ▀▄█▄▀ ▀▀▀▀▀▀▀\n" +
+///     " ▄▄▀█ ▀█▄▄▀▀▄ ▄ ▄██ ▄\n" +
+///     " ▄ ▄▄ ▀▀█▀█ █▄█ ▀ █▀ \n" +
+///     "  ▀   ▀▀▄▀ ▀ █ ▄ █▄██\n" +
+///     "█▀▀▀▀▀█ ▀▀▀ █▄ ██ ▄▀ \n" +
+///     "█ ███ █ ██▀▄▄▀▀▀▄▄▀ ▀\n" +
+///     "█ ▀▀▀ █  ▄ ▀▄██ ▄▀█▀█\n" +
+///     "▀▀▀▀▀▀▀  ▀▀▀ ▀▀   ▀▀ \n");
+/// ```
+///
+pub struct QrCodeGenerator<'a> {
     version_restriction: VersionRestriction,
     error_correction_restriction: ErrorCorrectionRestriction,
     mask_reference: Option<u8>,
     text: Option<&'a str>,
 }
 
-impl<'a> Default for QrCodeBuilder<'a> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> QrCodeBuilder<'a> {
-    pub fn new() -> Self {
+impl<'a> QrCodeGenerator<'a> {
+    fn new() -> Self {
         Self {
             version_restriction: VersionRestriction::MaxVersion(Version {
                 version: MAX_VERSION,
@@ -122,6 +149,16 @@ pub struct QrCode<const N: usize> {
     pub(crate) data: Array2D<Color, N>,
 }
 
+impl QrCode<MAX_MODULE_SIZE> {
+    pub fn generator<'a>() -> QrCodeGenerator<'a> {
+        QrCodeGenerator::new()
+    }
+
+    pub fn generate_from_text<'a, T: Into<&'a str>>(text: T) -> Self {
+        QrCodeGenerator::new().with_text(text.into()).build()
+    }
+}
+
 impl<const N: usize> QrCode<N> {
     pub fn draw_iter(&self) -> DrawIterator<N> {
         DrawIterator::new(self)
@@ -188,12 +225,12 @@ impl<const N: usize> Display for QrCode<N> {
 #[cfg(test)]
 mod tests {
     use crate::error_correction::ErrorCorrectionLevel;
-    use crate::qrcode::QrCodeBuilder;
+    use crate::qrcode::QrCodeGenerator;
     use alloc::format;
 
     #[test]
     fn numeric_specific_version_1() {
-        let qr_code = QrCodeBuilder::new()
+        let qr_code = QrCodeGenerator::new()
             .with_text("01234567")
             .with_specific_version(1)
             .with_specific_error_correction_level(ErrorCorrectionLevel::Medium)
@@ -230,7 +267,7 @@ ________█_█████__██__
 
     #[test]
     fn numeric_version_1_auto_select_high() {
-        let qr_code = QrCodeBuilder::new()
+        let qr_code = QrCodeGenerator::new()
             .with_text("01234567")
             .with_max_version(1)
             .with_min_error_correction_level(ErrorCorrectionLevel::Medium)
@@ -267,7 +304,7 @@ ________██____█__██__
 
     #[test]
     fn numeric_auto_select_1_h() {
-        let qr_code = QrCodeBuilder::new().with_text("01234567").build();
+        let qr_code = QrCodeGenerator::new().with_text("01234567").build();
 
         assert_eq!(
             format!("{:?}", qr_code),
@@ -299,7 +336,7 @@ ________█____█_█_████
 
     #[test]
     fn alphanumeric_version_1() {
-        let qr_code = QrCodeBuilder::new()
+        let qr_code = QrCodeGenerator::new()
             .with_max_version(1)
             .with_min_error_correction_level(ErrorCorrectionLevel::Quartile)
             .with_mask_reference(0b110)
@@ -336,7 +373,7 @@ ________█___█__█_█___
 
     #[test]
     fn alphanumeric_version_2() {
-        let qr_code = QrCodeBuilder::new()
+        let qr_code = QrCodeGenerator::new()
             .with_max_version(2)
             .with_min_error_correction_level(ErrorCorrectionLevel::Quartile)
             .with_mask_reference(0b110)
@@ -377,7 +414,7 @@ ________█___█___█___██___
 
     #[test]
     fn alphanumeric_version_4() {
-        let qr_code = QrCodeBuilder::new()
+        let qr_code = QrCodeGenerator::new()
             .with_max_version(4)
             .with_min_error_correction_level(ErrorCorrectionLevel::High)
             .with_mask_reference(0b110)

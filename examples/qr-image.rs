@@ -17,13 +17,16 @@
 
 use bmp::{px, Image, Pixel};
 use std::env;
-use tiny_qr::{Color, QrCodeBuilder};
+use tiny_qr::{Color, ErrorCorrectionLevel, QrCode};
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
     let data = args.join(" ");
 
-    let qr_code = QrCodeBuilder::new().with_text(data.as_str()).build();
+    let qr_code = QrCode::generator()
+        .with_specific_error_correction_level(ErrorCorrectionLevel::Low)
+        .with_text(data.as_str())
+        .build();
 
     let iter = qr_code.draw_iter();
 

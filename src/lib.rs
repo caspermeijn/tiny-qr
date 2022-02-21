@@ -32,8 +32,10 @@ mod matrix;
 mod qr_version;
 mod qrcode;
 
+pub use error_correction::ErrorCorrectionLevel;
 pub use matrix::Color;
-pub use qrcode::QrCodeBuilder;
+pub use qrcode::QrCode;
+pub use qrcode::QrCodeGenerator;
 
 #[cfg(test)]
 mod tests {
